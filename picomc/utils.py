@@ -16,12 +16,17 @@ def get_filepath(*f):
 
 def check_directories():
     """Create directory structure for the application."""
-    dirs = ['', 'instances', 'versions', 'assets', 'assets/indexes',
-            'assets/objects', 'assets/virtual', 'libraries']
+    dirs = [
+        '', 'instances', 'versions', 'assets', 'assets/indexes',
+        'assets/objects', 'assets/virtual', 'libraries'
+    ]
     for d in dirs:
         path = os.path.join(APP_ROOT, *d.split('/'))
-        logger.debug("Creating dir: {}".format(path))
-        os.makedirs(path, exist_ok=True)
+        try:
+            os.makedirs(path)
+            logger.debug("Created dir: {}".format(path))
+        except FileExistsError:
+            pass
 
 
 PLATFORM_MAP = {
@@ -39,31 +44,39 @@ def get_platform():
 def file_sha1(filename):
     h = hashlib.sha1()
     with open(filename, 'rb', buffering=0) as f:
-        for b in iter(partial(f.read, 128*1024), b''):
+        for b in iter(partial(f.read, 128 * 1024), b''):
             h.update(b)
     return h.hexdigest()
 
 
-class PersistentObject(object):
+class PersistentConfig:
+    def __init__(self, config_file, defaults):
+        self._filename = os.path.join(APP_ROOT, config_file)
+        self.__dict__.update(defaults)
+
     def __enter__(self):
-        self.filename = os.path.join(APP_ROOT, self.CONFIG_FILE)
-        self._load()
+        self.__load()
         return self
 
     def __exit__(self, ext_type, exc_value, traceback):
-        self._save()
+        self.__save()
 
-    def _load(self):
+    def __load(self):
         logger.debug("Loading {}.".format(self))
         try:
-            with open(self.filename, 'r') as json_file:
-                self.data.update(json.load(json_file))
+            with open(self._filename, 'r') as json_file:
+                self.__dict__.update(json.load(json_file))
         except FileNotFoundError:
             pass
 
-    def _save(self):
+    def __save(self):
         logger.debug("Saving {}.".format(self))
-        os.makedirs(os.path.dirname(self.filename),
-                    exist_ok=True)
-        with open(self.filename, 'w') as json_file:
-            json.dump(self.data, json_file)
+        os.makedirs(os.path.dirname(self._filename), exist_ok=True)
+        with open(self._filename, 'w') as json_file:
+            json.dump(
+                {
+                    k: v
+                    for k, v in self.__dict__.items() if not k.startswith('_')
+                },
+                json_file,
+                indent=4)

@@ -3,7 +3,7 @@ import uuid
 import click
 
 from picomc.globals import am
-from picomc.utils import PersistentObject
+from picomc.utils import PersistentConfig
 
 
 class NAMESPACE_NULL:
@@ -13,6 +13,7 @@ class NAMESPACE_NULL:
 class Account:
     def __init__(self, username):
         self.username = username
+        self.is_default = False
 
     def to_dict(self):
         return {}
@@ -30,43 +31,57 @@ class AccountError(ValueError):
         return " ".join(self.args)
 
 
-class AccountManager(PersistentObject):
-    CONFIG_FILE = 'accounts.json'
-    data = {'default': None, 'accounts': {}}
+class AccountManager:
+    cfg_file = 'accounts.json'
+    default_config = {'default': None, 'accounts': {}}
+
+    def __enter__(self):
+        self.config = PersistentConfig(self.cfg_file, self.default_config)
+        self.config.__enter__()
+        return self
+
+    def __exit__(self, ext_type, exc_value, traceback):
+        self.config.__exit__(ext_type, exc_value, traceback)
+        del self.config
 
     def list(self):
-        return self.data['accounts'].keys()
+        return self.config.accounts.keys()
 
     def get(self, name):
         try:
-            return Account(username=name, **self.data['accounts'][name])
+            acc = Account(username=name, **self.config.accounts[name])
+            acc.is_default = (self.config.default == name)
+            return acc
         except KeyError as ke:
             raise AccountError("Account does not exist:", name) from ke
 
     def exists(self, name):
-        return name in self.data['accounts']
+        return name in self.config.accounts
 
     def get_default(self):
-        default = self.data['default']
+        default = self.config.default
         if not default:
             raise AccountError("Default account not configured.")
         return self.get(default)
 
+    def is_default(self, name):
+        return name == self.config.default
+
     def set_default(self, account):
-        self.data['default'] = account.username
+        self.config.default = account.username
 
     def add(self, account):
         if am.exists(account.username):
             raise AccountError("An account already exists with that name.")
-        if not self.data['default'] and not self.data['accounts']:
-            self.data['default'] = account.username
-        self.data['accounts'][account.username] = account.to_dict()
+        if not self.config.default and not self.config.accounts:
+            self.config.default = account.username
+        self.config.accounts[account.username] = account.to_dict()
 
     def remove(self, name):
         try:
-            if self.data['default'] == name:
-                self.data['default'] = None
-            del self.data['accounts'][name]
+            if self.config.default == name:
+                self.config.default = None
+            del self.config.accounts[name]
         except KeyError:
             raise AccountError("Account does not exist:", name)
 
@@ -82,9 +97,8 @@ def list():
     """List avaiable accounts."""
     alist = am.list()
     if alist:
-        prefix = ['  ', '* ']
         print("\n".join("{}{}".format(
-            prefix[u == am.data['default']], u) for u in alist))
+            '* ' if am.is_default(u) else '  ', u) for u in alist))
     else:
         print("No accounts.")
 
@@ -112,7 +126,7 @@ def remove(username):
 @click.argument('username')
 def setdefault(username):
     try:
-        am.get(username)
-        am.data['default'] = username
+        default = am.get(username)
+        am.set_default(default)
     except AccountError as e:
         print(e)
