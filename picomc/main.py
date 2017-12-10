@@ -1,0 +1,41 @@
+from contextlib import ExitStack
+
+import click
+
+import picomc.logging
+from picomc.accounts import AccountManager, accounts_cli
+from picomc.globals import APP_ROOT, _ctx_ptr, ctx
+from picomc.instances import instance_cli
+from picomc.utils import check_directories
+from picomc.versions import VersionManager, version_cli
+
+
+@click.group()
+@click.option('--debug/--no-debug', default=False)
+@click.option(
+    '-r', '--root', help="Application data directory.", default=APP_ROOT)
+@click.pass_obj
+def picomc_cli(es, debug, root):
+    """picomc is a minimal CLI Minecraft launcher."""
+    picomc.logging.initialize(debug)
+    picomc.globals.APP_ROOT = root
+    check_directories()
+
+    am = es.enter_context(AccountManager())
+    ctx.am = am
+    ctx.vm = VersionManager()
+
+
+def main():
+    class Context:
+        pass
+
+    c = Context()
+    _ctx_ptr.set(c)
+    with ExitStack() as estack:
+        picomc_cli(obj=estack)
+
+
+picomc_cli.add_command(accounts_cli, name="account")
+picomc_cli.add_command(version_cli, name="version")
+picomc_cli.add_command(instance_cli, name="instance")
