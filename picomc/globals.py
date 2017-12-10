@@ -1,9 +1,15 @@
+import os
+import sys
 from functools import partial
-from os.path import expanduser
+from os.path import expanduser, join
 
 from picomc.proxy import Proxy
 
-APP_ROOT = expanduser("~/.picomc")
+APP_ROOT = {
+    'linux': lambda: expanduser('~/.local/share/picomc'),
+    'win32': lambda: join(os.getenv('APPDATA'), '.picomc'),
+    'darwin': lambda: expanduser('~/Library/Application Support/picomc')
+}[sys.platform]()
 
 
 class Ptr:

@@ -32,7 +32,6 @@ def check_directories():
 PLATFORM_MAP = {
     'darwin': 'osx',
     'win32': 'windows',
-    'cygwin': 'windows',
     'linux': 'linux'
 }
 

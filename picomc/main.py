@@ -1,3 +1,4 @@
+import logging
 from contextlib import ExitStack
 
 import click
@@ -8,6 +9,8 @@ from picomc.globals import APP_ROOT, _ctx_ptr, ctx
 from picomc.instances import instance_cli
 from picomc.utils import check_directories
 from picomc.versions import VersionManager, version_cli
+
+logger = logging.getLogger('picomc.cli')
 
 
 @click.group()
@@ -20,6 +23,9 @@ def picomc_cli(es, debug, root):
     picomc.logging.initialize(debug)
     picomc.globals.APP_ROOT = root
     check_directories()
+
+    logger.debug("Using application directory: {}".format(
+                 picomc.globals.APP_ROOT))
 
     am = es.enter_context(AccountManager())
     ctx.am = am
