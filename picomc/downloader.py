@@ -1,11 +1,21 @@
 import os
 import shutil
 import subprocess
+import urllib
+
+
+def check_aria2():
+    try:
+        subprocess.run("aria2c --version".split())
+        return True
+    except FileNotFoundError:
+        return False
 
 
 def downloader_aria2(q, d):
-    p = subprocess.Popen('aria2c -i - --auto-file-renaming false --dir'.split()+[d], stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen('/usr/bin/aria2c -i - -j8 --dir'.split()
+                         + [d], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
     L = []
     for url, outs in q:
         L.append("{}\n out={}".format(url, outs[0]))
@@ -22,6 +32,18 @@ def downloader_aria2(q, d):
                 shutil.copy(src, dst)
 
 
+def downloader_urllib(q, d):
+    # Dumb and slow.
+    for url, outs in q:
+        aouts = list(os.path.join(d, o) for o in outs)
+        for o in aouts:
+            os.makedirs(os.path.dirname(o), exist_ok=True)
+        pout, *eouts = aouts
+        urllib.request.urlretrieve(url, pout)
+        for o in eouts:
+            shutil.copy(pout, o)
+
+
 class DownloadQueue:
     def __init__(self):
         self.q = []
@@ -29,5 +51,9 @@ class DownloadQueue:
     def add(self, url, *filename):
         self.q.append((url, filename))
 
-    def download(self, d, downloader=downloader_aria2):
+    def download(self, d):
+        if check_aria2():
+            downloader = downloader_aria2
+        else:
+            downloader = downloader_urllib
         downloader(self.q, d)
