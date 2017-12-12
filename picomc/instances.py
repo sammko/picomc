@@ -77,10 +77,12 @@ class Instance:
         mcargs = mcargs.replace("${", "{")
         mcargs = mcargs.format(
             auth_player_name=account.username,
+            auth_session='-', # TODO Find out what this is. Used in older versions instead of access_token.
             version_name=version,
             game_directory=gamedir,
             assets_root=get_filepath('assets'),
             assets_index_name=vjson['assetIndex']['id'],
+            game_assets=get_filepath('assets', 'virtual', 'legacy'), # FIXME Ugly hack relying on untested behaviour.
             auth_uuid=account.get_uuid(),
             auth_access_token=account.get_access_token(),
             user_type='mojang',
