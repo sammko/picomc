@@ -20,7 +20,14 @@ class NativesExtractor:
     def __enter__(self):
         version = self.instance.config.version
         os.makedirs(self.ndir, exist_ok=True)
+        dedup = set()
         for fullpath in vm.get_libs(version, natives=True):
+            if fullpath in dedup:
+                logger.debug("Skipping duplicate natives archive: "
+                             "{}".format(fullpath))
+                continue
+            dedup.add(fullpath)
+            logger.debug("Extracting natives archive: {}".format(fullpath))
             with zipfile.ZipFile(fullpath) as zf:
                 zf.extractall(path=self.ndir)
 
