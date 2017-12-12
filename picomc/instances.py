@@ -7,7 +7,7 @@ import zipfile
 import click
 
 from picomc.globals import am, vm
-from picomc.utils import PersistentConfig, get_filepath
+from picomc.utils import PersistentConfig, get_filepath, get_platform
 
 logger = logging.getLogger('picomc.cli')
 
@@ -31,6 +31,57 @@ class NativesExtractor:
 
 def sanitize_name(name):
     return name.replace('..', '_').replace('/', '_')
+
+
+def process_arguments(arguments_dict):
+    """This is a horrible function the only purpose of which is to die and be
+    rewritten from scratch. Along with the native library preprocessor."""
+    def match_rule(rule):
+        # This launcher currently does not support any of the extended
+        # features, which currently include at least:
+        #   - is_demo_user
+        #   - has_custom_resolution
+        # It is not clear whether an `os` and `features` matcher may
+
+        # be present simultaneously - assuming not.
+        if 'features' in rule:
+            return False
+
+        osmatch = True
+        if 'os' in rule:
+            # The os matcher may apparently also contain a version spec
+            # which is probably a regex matched against the java resported
+            # os version. See 17w50a.json for an example. Ignoring it for now.
+            # This may lead to older versions of Windows matchins as W10.
+            osmatch = rule['os']['name'] == get_platform()
+        if osmatch:
+            return rule['action'] == 'allow'
+        return None
+
+    def subproc(obj):
+        args = []
+        for a in obj:
+            if isinstance(a, str):
+                args.append(a)
+            else:
+                allow = 'rules' not in a
+                for rule in a['rules']:
+                    m = match_rule(rule)
+                    if m is not None:
+                        allow = m
+                if not allow:
+                    continue
+                if isinstance(a['value'], list):
+                    args.extend(a['value'])
+                elif isinstance(a['value'], str):
+                    args.append(a['value'])
+                else:
+                    logger.error("Unknown type of value field.")
+        # This is kind of stupid, but dramatically
+        # simplifies the subtitution stage. FIXME
+        return " ".join(args)
+    return (subproc(arguments_dict['game']),
+            subproc(arguments_dict['jvm']))
 
 
 class Instance:
@@ -64,6 +115,9 @@ class Instance:
 
     def _exec_mc(self, account):
         # this is temporary. FIXME
+        # This 'function' is quickly getting worse and worse.
+        # Rewrite it.
+
         vjson = vm.version_json(self.config.version)
         version = vjson['id']
         java = '/usr/bin/java -Xmx1G'.split()
@@ -73,25 +127,46 @@ class Instance:
         natives = get_filepath('instances', self.name, 'natives')
         mc = vjson['mainClass']
         gamedir = get_filepath('instances', self.name, 'minecraft')
-        mcargs = vjson['minecraftArguments']
+
+        if 'minecraftArguments' in vjson:
+            mcargs = vjson['minecraftArguments']
+            jvmargs = " ".join([
+                "-Djava.library.path={}".format(natives), '-cp',
+                ':'.join(libs)
+            ])  # To match behaviour of process_arguments
+        elif 'arguments' in vjson:
+            mcargs, jvmargs = process_arguments(vjson['arguments'])
+            jvmargs = jvmargs.replace("${", "{")
+            jvmargs = jvmargs.format(
+                natives_directory=natives,
+                launcher_name='picomc',
+                launcher_version='0',  # Do something proper here. FIXME.
+                classpath=":".join(libs)
+            )
+
+        # Convert java-like subtitution strings to python. FIXME.
         mcargs = mcargs.replace("${", "{")
+
         mcargs = mcargs.format(
             auth_player_name=account.username,
-            auth_session='-', # TODO Find out what this is. Used in older versions instead of access_token.
+            # Only used in old versions.
+            auth_session="token:{}:{}".format(account.get_access_token(),
+                                              account.get_uuid()),
             version_name=version,
             game_directory=gamedir,
             assets_root=get_filepath('assets'),
             assets_index_name=vjson['assetIndex']['id'],
-            game_assets=get_filepath('assets', 'virtual', 'legacy'), # FIXME Ugly hack relying on untested behaviour.
+            # FIXME Ugly hack relying on untested behaviour:
+            game_assets=get_filepath('assets', 'virtual', 'legacy'),
             auth_uuid=account.get_uuid(),
             auth_access_token=account.get_access_token(),
             user_type='mojang',
             version_type='picomc',
-            user_properties={})
-        fargs = java + [
-            "-Djava.library.path={}".format(natives), '-cp', ':'.join(libs),
-            mc, *mcargs.split(' ')
-        ]
+            user_properties={}
+        )
+
+        fargs = java + jvmargs.split(' ') + [mc] + mcargs.split(' ')
+        logger.debug("Launching: " + " ".join(fargs))
         subprocess.run(fargs, cwd=gamedir)
 
     @classmethod
