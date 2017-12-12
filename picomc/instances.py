@@ -112,20 +112,21 @@ class Instance:
     def populate(self, version):
         self.config.version = version
 
-    def launch(self, account):
-        vm.prepare_version(self.config.version)
+    def launch(self, account, version):
+        version = version or self.config.version
+        vm.prepare_version(version)
         logger.info("Launching instance {}!".format(self.name))
         os.makedirs(
             get_filepath('instances', self.name, 'minecraft'), exist_ok=True)
         with NativesExtractor(self):
-            self._exec_mc(account)
+            self._exec_mc(account, version)
 
-    def _exec_mc(self, account):
+    def _exec_mc(self, account, version):
         # this is temporary. FIXME
         # This 'function' is quickly getting worse and worse.
         # Rewrite it.
 
-        vjson = vm.version_json(self.config.version)
+        vjson = vm.version_json(version)
         version = vjson['id']
         java = '/usr/bin/java -Xmx1G'.split()
         libs = list(vm.get_libs(version))
@@ -201,7 +202,8 @@ def create(name, version):
 @instance_cli.command()
 @click.argument('name')
 @click.option('--account', default=None)
-def launch(name, account):
+@click.option('--version-override', default=None)
+def launch(name, account, version):
     if account is None:
         account = am.get_default()
     else:
@@ -210,4 +212,4 @@ def launch(name, account):
         logger.error("No such instance exists.")
         return
     with Instance(name) as inst:
-        inst.launch(account)
+        inst.launch(account, version)
