@@ -52,6 +52,8 @@ class DownloadQueue:
         self.q.append((url, filename))
 
     def download(self, d):
+        if not self.q:
+            return
         if check_aria2():
             downloader = downloader_aria2
         else:
