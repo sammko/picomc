@@ -10,6 +10,18 @@ from picomc.globals import APP_ROOT
 logger = logging.getLogger("picomc.cli")
 
 
+class cached_property(object):
+    def __init__(self, fn):
+        self.fn = fn
+
+    def __get__(self, inst, cls):
+        if inst is None:
+            return self
+        r = self.fn(inst)
+        setattr(inst, self.fn.__name__, r)
+        return r
+
+
 def get_filepath(*f):
     return os.path.join(APP_ROOT, *f)
 
@@ -29,17 +41,6 @@ def check_directories():
             pass
 
 
-PLATFORM_MAP = {
-    'darwin': 'osx',
-    'win32': 'windows',
-    'linux': 'linux'
-}
-
-
-def get_platform():
-    return PLATFORM_MAP[sys.platform]
-
-
 def file_sha1(filename):
     h = hashlib.sha1()
     with open(filename, 'rb', buffering=0) as f:
@@ -49,7 +50,7 @@ def file_sha1(filename):
 
 
 class PersistentConfig:
-    def __init__(self, config_file, defaults):
+    def __init__(self, config_file, defaults={}):
         self._filename = os.path.join(APP_ROOT, config_file)
         self.__dict__.update(defaults)
 
@@ -61,7 +62,7 @@ class PersistentConfig:
         self.__save()
 
     def __load(self):
-        logger.debug("Loading {}.".format(self))
+        logger.debug("Loading Config from {}.".format(self._filename))
         try:
             with open(self._filename, 'r') as json_file:
                 self.__dict__.update(json.load(json_file))
@@ -69,7 +70,7 @@ class PersistentConfig:
             pass
 
     def __save(self):
-        logger.debug("Saving {}.".format(self))
+        logger.debug("Saving Config to {}.".format(self._filename))
         os.makedirs(os.path.dirname(self._filename), exist_ok=True)
         with open(self._filename, 'w') as json_file:
             json.dump(

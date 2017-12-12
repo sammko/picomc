@@ -6,22 +6,22 @@ import zipfile
 
 import click
 
-from picomc.globals import am, vm
-from picomc.utils import PersistentConfig, get_filepath, get_platform
+from picomc.globals import am, platform, vm
+from picomc.utils import PersistentConfig, get_filepath
 
 logger = logging.getLogger('picomc.cli')
 
 
 class NativesExtractor:
-    def __init__(self, instance):
+    def __init__(self, instance, vobj):
         self.instance = instance
+        self.vobj = vobj
         self.ndir = get_filepath('instances', instance.name, 'natives')
 
     def __enter__(self):
-        version = self.instance.config.version
         os.makedirs(self.ndir, exist_ok=True)
         dedup = set()
-        for fullpath in vm.get_libs(version, natives=True):
+        for fullpath in self.vobj.lib_filenames(natives=True):
             if fullpath in dedup:
                 logger.debug("Skipping duplicate natives archive: "
                              "{}".format(fullpath))
@@ -32,6 +32,7 @@ class NativesExtractor:
                 zf.extractall(path=self.ndir)
 
     def __exit__(self, ext_type, exc_value, traceback):
+        logger.debug("Cleaning up natives.")
         shutil.rmtree(self.ndir)
         # print(self.ndir)
 
@@ -49,7 +50,6 @@ def process_arguments(arguments_dict):
         #   - is_demo_user
         #   - has_custom_resolution
         # It is not clear whether an `os` and `features` matcher may
-
         # be present simultaneously - assuming not.
         if 'features' in rule:
             return False
@@ -60,7 +60,7 @@ def process_arguments(arguments_dict):
             # which is probably a regex matched against the java resported
             # os version. See 17w50a.json for an example. Ignoring it for now.
             # This may lead to older versions of Windows matchins as W10.
-            osmatch = rule['os']['name'] == get_platform()
+            osmatch = rule['os']['name'] == platform
         if osmatch:
             return rule['action'] == 'allow'
         return None
@@ -113,28 +113,32 @@ class Instance:
         self.config.version = version
 
     def launch(self, account, version):
-        version = version or self.config.version
-        vm.prepare_version(version)
+        vobj = vm.get_version(version or self.config.version)
         logger.info("Launching instance {}!".format(self.name))
+        logger.info("Using minecraft version: {}".format(vobj.version))
+        vobj.prepare()
+        logger.info("Using account: {}".format(account))
         os.makedirs(
             get_filepath('instances', self.name, 'minecraft'), exist_ok=True)
-        with NativesExtractor(self):
-            self._exec_mc(account, version)
+        with NativesExtractor(self, vobj):
+            self._exec_mc(account, vobj)
 
-    def _exec_mc(self, account, version):
+    def _exec_mc(self, account, v):
         # this is temporary. FIXME
         # This 'function' is quickly getting worse and worse.
         # Rewrite it.
 
-        vjson = vm.version_json(version)
-        version = vjson['id']
-        java = '/usr/bin/java -Xmx1G'.split()
-        libs = list(vm.get_libs(version))
-        jarfile = get_filepath('versions', version, '{}.jar'.format(version))
-        libs.append(jarfile)
+        java = '/usr/bin/java -Xmx1G'.split()  # This should not be hardcoded
+        libs = list(v.lib_filenames())
+        libs.append(v.jarfile)
+
+        # Make functions out of these two
         natives = get_filepath('instances', self.name, 'natives')
-        mc = vjson['mainClass']
         gamedir = get_filepath('instances', self.name, 'minecraft')
+
+        vjson = v.raw_vspec
+
+        mc = vjson['mainClass']
 
         if 'minecraftArguments' in vjson:
             mcargs = vjson['minecraftArguments']
@@ -160,7 +164,7 @@ class Instance:
             # Only used in old versions.
             auth_session="token:{}:{}".format(account.get_access_token(),
                                               account.get_uuid()),
-            version_name=version,
+            version_name=v.version,
             game_directory=gamedir,
             assets_root=get_filepath('assets'),
             assets_index_name=vjson['assetIndex']['id'],
@@ -203,7 +207,7 @@ def create(name, version):
 @click.argument('name')
 @click.option('--account', default=None)
 @click.option('--version-override', default=None)
-def launch(name, account, version):
+def launch(name, account, version_override):
     if account is None:
         account = am.get_default()
     else:
@@ -212,4 +216,14 @@ def launch(name, account, version):
         logger.error("No such instance exists.")
         return
     with Instance(name) as inst:
-        inst.launch(account, version)
+        inst.launch(account, version_override)
+
+
+@instance_cli.command()
+@click.argument('name', default="")
+def dir(name=''):
+    if not name:
+        print(get_filepath('instances'))
+    else:
+        # Careful, if configurable instance dirs are added, this breaks.
+        print(get_filepath('instances', name))

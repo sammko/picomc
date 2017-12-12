@@ -25,6 +25,9 @@ class Account:
     def get_access_token(self):
         return '-'
 
+    def __repr__(self):
+        return self.username
+
 
 class AccountError(ValueError):
     def __str__(self):

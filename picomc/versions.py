@@ -9,8 +9,8 @@ import click
 import requests
 
 from picomc.downloader import DownloadQueue
-from picomc.globals import vm
-from picomc.utils import file_sha1, get_filepath, get_platform
+from picomc.globals import platform, vm
+from picomc.utils import cached_property, file_sha1, get_filepath
 
 logger = logging.getLogger('picomc.cli')
 
@@ -41,50 +41,30 @@ VersionType.ALPHA = VersionType('old_alpha')
 VersionType.BETA = VersionType('old_beta')
 
 
-class VersionManager:
-    VERSION_MANIFEST = \
-        "https://launchermeta.mojang.com/mc/game/version_manifest.json"
+class Version:
     LIBRARIES_URL = "https://libraries.minecraft.net/"
     ASSETS_URL = "http://resources.download.minecraft.net/"
 
-    def __init__(self):
-        self._vm = None
+    def __init__(self, version):
+        self.version = version
+        self.jarfile = get_filepath('versions', version,
+                                    '{}.jar'.format(version))
 
-    @property
-    def manifest(self):
-        if not self._vm:
-            try:
-                self._vm = requests.get(self.VERSION_MANIFEST).json()
-                with open(get_filepath('versions/manifest.json'), 'w') as m:
-                    json.dump(self._vm, m, indent=4, sort_keys=True)
-
-            except requests.ConnectionError:
-                logger.warn("Failed to retrieve version_manifest. "
-                            "Check your internet connection.")
-                try:
-                    with open(get_filepath('versions/manifest.json')) as m:
-                        self._vm = json.load(m)
-                        logger.warn("Using cached version_manifest.")
-                except FileNotFoundError:
-                    logger.warn("Cached version_manifest not avaiable.")
-                    self._vm = {}
-        return self._vm
-
-    def version_json(self, version):
-        version = self.resolve_version(version)
-        fpath = get_filepath('versions', version, '{}.json'.format(version))
-        dirpath = get_filepath('versions', version)
-        os.makedirs(dirpath, exist_ok=True)
+    @cached_property
+    def raw_vspec(self):
+        fpath = get_filepath('versions', self.version,
+                             '{}.json'.format(self.version))
         if os.path.exists(fpath):
             with open(fpath) as fp:
                 return json.load(fp)
         else:
             url = None
-            for v in self.manifest['versions']:
-                if v['id'] == version:
+            for v in vm.manifest['versions']:
+                if v['id'] == self.version:
                     url = v['url']
+                    break
             if not url:
-                raise ValueError("No such version avaiable.")
+                raise ValueError("Specified version not avaiable.")
             try:
                 j = requests.get(url).json()
                 for l in j['libraries']:
@@ -92,6 +72,8 @@ class VersionManager:
                         del l['downloads']
                     except KeyError:
                         pass
+                dirpath = get_filepath('versions', self.version)
+                os.makedirs(dirpath, exist_ok=True)
                 with open(fpath, 'w') as fp:
                     json.dump(j, fp, indent=4, sort_keys=True)
                 return j
@@ -99,7 +81,10 @@ class VersionManager:
                 logger.error("Failed to retrieve version json file.")
                 sys.exit(1)
 
-    def assets_index(self, iid, url):
+    @cached_property
+    def raw_asset_index(self):
+        iid = self.raw_vspec['assetIndex']['id']
+        url = self.raw_vspec['assetIndex']['url']
         fpath = get_filepath('assets', 'indexes', '{}.json'.format(iid))
         if os.path.exists(fpath):
             with open(fpath) as fp:
@@ -114,12 +99,10 @@ class VersionManager:
                 logger.error("Failed to retrieve assets index.")
                 sys.exit(1)
 
-    def download_jar(self, jarfile, url):
-        urllib.request.urlretrieve(url, jarfile)
-
-    def _get_libraries(self, j, natives_only=False):
-        platform = get_platform()
-        for lib in j['libraries']:
+    def _libraries(self, natives_only=False):
+        # The rule matching in this function could be cached,
+        # not sure if worth it.
+        for lib in self.raw_vspec['libraries']:
             rules = lib.get('rules', [])
             allow = 'rules' not in lib
             for rule in rules:
@@ -127,62 +110,84 @@ class VersionManager:
                 if 'os' in rule:
                     osmatch = rule['os']['name'] == platform
                 if osmatch:
-                    allow = rule['action'] == 'allow'
+                    allow = (rule['action'] == 'allow')
             if not allow:
                 continue
             if natives_only and 'natives' not in lib:
                 continue
             yield lib
 
-    def get_libs(self, version, natives=False):
-        j = self.version_json(self.resolve_version(version))
-        platform = get_platform()
-        for lib in self._get_libraries(j, natives):
-            if 'natives' in lib and not natives:
-                continue
-            suffix = ""
-            if 'natives' in lib and platform in lib['natives']:
+    @staticmethod
+    def _resolve_library(lib):
+        suffix = ""
+        if 'natives' in lib:
+            if platform in lib['natives']:
                 suffix = "-" + lib['natives'][platform]
-            fullname = lib.get('name')
-            package, name, version = fullname.split(":")
-            package = package.replace('.', '/')
-            filename = "{}-{}{}.jar".format(name, version, suffix)
-            fullpath = get_filepath('libraries', package, name,
-                                    version, filename)
-            yield fullpath
+            else:
+                logger.warn(("Native library ({}) not available"
+                            "for current platform ({}).")
+                            .format(lib['name'], platform))
+        fullname = lib['name']
+        url_base = lib.get('url', Version.LIBRARIES_URL)
+        p, n, v = fullname.split(":")
 
-    def download_libraries(self, j):
-        platform = get_platform()
-        q = DownloadQueue()
-        for lib in self._get_libraries(j):
-            suffix = ""
-            if 'natives' in lib and platform in lib['natives']:
-                suffix = "-" + lib['natives'][platform]
-            fullname = lib.get('name')
-            url_base = lib.get('url', self.LIBRARIES_URL)
-            package, name, version = fullname.split(":")
-            package = package.replace('.', '/')
+        class LibPaths:
+            package = p.replace('.', '/')
+            name = n
+            version = v
             filename = "{}-{}{}.jar".format(name, version, suffix)
             fullpath = "{}/{}/{}/{}".format(package, name, version, filename)
             url = urllib.parse.urljoin(url_base, fullpath)
-            output = os.path.join(*fullpath.split('/'))
-            if not os.path.exists(get_filepath('libraries', output)):
-                q.add(url, output)
-        q.download(get_filepath('libraries'))
+            basedir = get_filepath('libraries')
+            local_relpath = os.path.join(*fullpath.split('/'))
+            local_abspath = os.path.join(basedir, local_relpath)
 
-    def download_assets(self, index, index_url):
-        ij = self.assets_index(index, index_url)
-        logger.debug("Retrieved index.")
-        virtual = ij.get('virtual', False)
+        return LibPaths
+
+    def lib_filenames(self, natives=False):
+        for lib in self._libraries(natives):
+            if 'natives' in lib and not natives:
+                continue
+            paths = self._resolve_library(lib)
+            yield paths.local_abspath
+
+    def download_jarfile(self, force=False):
+        """Checks existence and hash of cached jar. Downloads a new one
+        if either condition is violated."""
+        dlspec = self.raw_vspec['downloads']['client']
+        logger.debug("Checking jarfile.")
+        redownload = False
+        if force or not os.path.exists(self.jarfile) or \
+           file_sha1(self.jarfile) != dlspec['sha1']:
+            logger.info("Downloading jar ({}).".format(self.version))
+            urllib.request.urlretrieve(dlspec['url'], self.jarfile)
+
+    def download_libraries(self, force=False):
+        """Downloads missing libraries."""
+        logger.info("Checking libraries.")
+        q = DownloadQueue()
+        for lib in self._libraries():
+            paths = self._resolve_library(lib)
+            if force or not os.path.exists(paths.local_abspath):
+                q.add(paths.url, paths.local_relpath)
+        q.download(paths.basedir)
+
+    def download_assets(self, force=False):
+        """Downloads missing assets."""
+        logger.info("Checking assets.")
+        # Produce reverse dict, as multiple files with a single hash
+        # can exist and should only be downloaded once.
         rev = dict()
-        for name, obj in ij['objects'].items():
+        for name, obj in self.raw_asset_index['objects'].items():
             h = obj['hash']
             if h in rev:
                 rev[h].append(name)
             else:
                 rev[h] = [name]
+
         q = DownloadQueue()
         for digest, names in rev.items():
+            # This is a mess, should be rewritten. FIXME
             fname = os.path.join('objects', digest[0:2], digest)
             vfnames = (os.path.join('virtual',
                        'legacy', *name.split('/')) for name in names)
@@ -190,42 +195,31 @@ class VersionManager:
             url = urllib.parse.urljoin(self.ASSETS_URL,
                                        "{}/{}".format(digest[0:2], digest))
             outs = []
-            if not os.path.exists(fullfname):
+            if force or not os.path.exists(fullfname):
                 outs.append(fname)
-            if virtual:
+            if self.raw_asset_index.get('virtual', False):
                 for vfname in vfnames:
-                    if not os.path.exists(get_filepath('assets',
-                                          *vfname.split('/'))):
+                    if force or not os.path.exists(get_filepath('assets',
+                                                   *vfname.split('/'))):
                         outs.append(vfname)
             if outs:
                 q.add(url, *outs)
 
         q.download(get_filepath('assets'))
 
-    def prepare_version(self, version):
-        version = self.resolve_version(version)
-        j = self.version_json(version)
-        dl = j['downloads']['client']
-        jarfile = get_filepath('versions', version, '{}.jar'.format(version))
-        redownload = False
-        if os.path.exists(jarfile):
-            if file_sha1(jarfile) != dl['sha1']:
-                redownload = True
-        else:
-            redownload = True
-        if redownload:
-            logger.info("Downloading jar ({}).".format(version))
-            self.download_jar(jarfile, dl['url'])
-        logger.info("Downloading libraries")
-        self.download_libraries(j)
-        logger.info("Downloading assets")
-        self.download_assets(j['assetIndex']['id'], j['assetIndex']['url'])
+    def prepare(self):
+        self.download_jarfile()
+        self.download_libraries()
+        self.download_assets()
 
-    def version_list(self, vtype=VersionType.RELEASE):
-        return [v['id'] for v in self.manifest['versions'] if
-                vtype.match(v['type'])]
+
+class VersionManager:
+    # This class should probably be rearchitected
+    VERSION_MANIFEST = \
+        "https://launchermeta.mojang.com/mc/game/version_manifest.json"
 
     def resolve_version(self, v):
+        """Takes a metaversion and resolves to a version."""
         if v == 'latest':
             v = self.manifest['latest']['release']
             logger.info("Resolved latest -> {}".format(v))
@@ -233,6 +227,31 @@ class VersionManager:
             v = self.manifest['latest']['snapshot']
             logger.info("Resolved snapshot -> {}".format(v))
         return v
+
+    @cached_property
+    def manifest(self):
+        try:
+            m = requests.get(self.VERSION_MANIFEST).json()
+            with open(get_filepath('versions/manifest.json'), 'w') as mfile:
+                json.dump(m, mfile, indent=4, sort_keys=True)
+            return m
+        except requests.ConnectionError:
+            logger.warn("Failed to retrieve version_manifest. "
+                        "Check your internet connection.")
+            try:
+                with open(get_filepath('versions/manifest.json')) as mfile:
+                    logger.warn("Using cached version_manifest.")
+                    return json.load(mfile)
+            except FileNotFoundError:
+                logger.warn("Cached version manifest not available.")
+                raise RuntimeError("Failed to retrieve version manifest.")
+
+    def version_list(self, vtype=VersionType.RELEASE):
+        return [v['id'] for v in self.manifest['versions'] if
+                vtype.match(v['type'])]
+
+    def get_version(self, version):
+        return Version(self.resolve_version(version))
 
 
 @click.group()
@@ -250,7 +269,9 @@ def list(release, snapshot, alpha, beta):
     T = VersionType.create(release, snapshot, alpha, beta)
     print('\n'.join(vm.version_list(vtype=T)))
 
+
 @version_cli.command()
 @click.argument('version')
 def prepare(version):
-    vm.prepare_version(version)
+    vobj = vm.get_version(version)
+    vobj.prepare()

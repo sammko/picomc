@@ -11,6 +11,16 @@ APP_ROOT = {
     'darwin': lambda: expanduser('~/Library/Application Support/picomc')
 }[sys.platform]()
 
+try:
+    PLATFORM_MAP = {
+        'darwin': 'osx',
+        'win32': 'windows',
+        'linux': 'linux'
+    }
+    platform = PLATFORM_MAP[sys.platform]
+except KeyError:
+    platform = sys.platform
+
 
 class Ptr:
     _a = None
