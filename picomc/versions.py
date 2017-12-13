@@ -155,7 +155,6 @@ class Version:
         if either condition is violated."""
         dlspec = self.raw_vspec['downloads']['client']
         logger.debug("Checking jarfile.")
-        redownload = False
         if force or not os.path.exists(self.jarfile) or \
            file_sha1(self.jarfile) != dlspec['sha1']:
             logger.info("Downloading jar ({}).".format(self.version))
