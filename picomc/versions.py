@@ -3,7 +3,6 @@ import logging
 import os
 import sys
 import urllib
-from collections import defaultdict
 
 import click
 import requests
