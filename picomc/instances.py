@@ -44,6 +44,7 @@ def sanitize_name(name):
 def process_arguments(arguments_dict):
     """This is a horrible function the only purpose of which is to die and be
     rewritten from scratch. Along with the native library preprocessor."""
+
     def match_rule(rule):
         # This launcher currently does not support any of the extended
         # features, which currently include at least:
@@ -87,8 +88,8 @@ def process_arguments(arguments_dict):
         # This is kind of stupid, but dramatically
         # simplifies the subtitution stage. FIXME
         return " ".join(args)
-    return (subproc(arguments_dict['game']),
-            subproc(arguments_dict['jvm']))
+
+    return (subproc(arguments_dict['game']), subproc(arguments_dict['jvm']))
 
 
 class Instance:
@@ -100,8 +101,8 @@ class Instance:
         self.name = name
 
     def __enter__(self):
-        self.config = PersistentConfig(self.cfg_file,
-                                       defaults=self.default_config)
+        self.config = PersistentConfig(
+            self.cfg_file, defaults=self.default_config)
         self.config.__enter__()
         return self
 
@@ -143,8 +144,7 @@ class Instance:
         if 'minecraftArguments' in vjson:
             mcargs = vjson['minecraftArguments']
             jvmargs = " ".join([
-                "-Djava.library.path={}".format(natives), '-cp',
-                ':'.join(libs)
+                "-Djava.library.path={}".format(natives), '-cp', ':'.join(libs)
             ])  # To match behaviour of process_arguments
         elif 'arguments' in vjson:
             mcargs, jvmargs = process_arguments(vjson['arguments'])
@@ -153,8 +153,7 @@ class Instance:
                 natives_directory=natives,
                 launcher_name='picomc',
                 launcher_version='0',  # Do something proper here. FIXME.
-                classpath=":".join(libs)
-            )
+                classpath=":".join(libs))
 
         # Convert java-like subtitution strings to python. FIXME.
         mcargs = mcargs.replace("${", "{")
@@ -174,8 +173,7 @@ class Instance:
             auth_access_token=account.get_access_token(),
             user_type='mojang',
             version_type='picomc',
-            user_properties={}
-        )
+            user_properties={})
 
         fargs = java + jvmargs.split(' ') + [mc] + mcargs.split(' ')
         logger.debug("Launching: " + " ".join(fargs))

@@ -13,9 +13,11 @@ def check_aria2():
 
 
 def downloader_aria2(q, d):
-    p = subprocess.Popen('/usr/bin/aria2c -i - -j8 --dir'.split()
-                         + [d], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE)
+    p = subprocess.Popen(
+        '/usr/bin/aria2c -i - -j8 --dir'.split() + [d],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
     L = []
     for url, outs in q:
         L.append("{}\n out={}".format(url, outs[0]))

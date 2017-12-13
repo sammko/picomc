@@ -24,8 +24,8 @@ def picomc_cli(es, debug, root):
     picomc.globals.APP_ROOT = root
     check_directories()
 
-    logger.debug("Using application directory: {}".format(
-                 picomc.globals.APP_ROOT))
+    logger.debug(
+        "Using application directory: {}".format(picomc.globals.APP_ROOT))
 
     am = es.enter_context(AccountManager())
     ctx.am = am

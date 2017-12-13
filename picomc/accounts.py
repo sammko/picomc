@@ -100,8 +100,8 @@ def list():
     """List avaiable accounts."""
     alist = am.list()
     if alist:
-        print("\n".join("{}{}".format(
-            '* ' if am.is_default(u) else '  ', u) for u in alist))
+        print("\n".join("{}{}".format('* ' if am.is_default(u) else '  ', u)
+                        for u in alist))
     else:
         print("No accounts.")
 

@@ -125,8 +125,8 @@ class Version:
                 suffix = "-" + lib['natives'][platform]
             else:
                 logger.warn(("Native library ({}) not available"
-                            "for current platform ({}).")
-                            .format(lib['name'], platform))
+                             "for current platform ({}).").format(
+                                 lib['name'], platform))
         fullname = lib['name']
         url_base = lib.get('url', Version.LIBRARIES_URL)
         p, n, v = fullname.split(":")
@@ -189,18 +189,18 @@ class Version:
         for digest, names in rev.items():
             # This is a mess, should be rewritten. FIXME
             fname = os.path.join('objects', digest[0:2], digest)
-            vfnames = (os.path.join('virtual',
-                       'legacy', *name.split('/')) for name in names)
+            vfnames = (os.path.join('virtual', 'legacy', *name.split('/'))
+                       for name in names)
             fullfname = get_filepath('assets', 'objects', digest[0:2], digest)
-            url = urllib.parse.urljoin(self.ASSETS_URL,
-                                       "{}/{}".format(digest[0:2], digest))
+            url = urllib.parse.urljoin(self.ASSETS_URL, "{}/{}".format(
+                digest[0:2], digest))
             outs = []
             if force or not os.path.exists(fullfname):
                 outs.append(fname)
             if self.raw_asset_index.get('virtual', False):
                 for vfname in vfnames:
-                    if force or not os.path.exists(get_filepath('assets',
-                                                   *vfname.split('/'))):
+                    if force or not os.path.exists(
+                            get_filepath('assets', *vfname.split('/'))):
                         outs.append(vfname)
             if outs:
                 q.add(url, *outs)
@@ -247,8 +247,10 @@ class VersionManager:
                 raise RuntimeError("Failed to retrieve version manifest.")
 
     def version_list(self, vtype=VersionType.RELEASE):
-        return [v['id'] for v in self.manifest['versions'] if
-                vtype.match(v['type'])]
+        return [
+            v['id'] for v in self.manifest['versions']
+            if vtype.match(v['type'])
+        ]
 
     def get_version(self, version):
         return Version(self.resolve_version(version))
