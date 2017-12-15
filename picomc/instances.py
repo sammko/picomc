@@ -6,7 +6,7 @@ import zipfile
 
 import click
 
-from picomc.globals import am, platform, vm
+from picomc.globals import am, gconf, platform, vm
 from picomc.utils import PersistentConfig, get_filepath
 
 logger = logging.getLogger('picomc.cli')
@@ -92,23 +92,37 @@ def process_arguments(arguments_dict):
     return (subproc(arguments_dict['game']), subproc(arguments_dict['jvm']))
 
 
-class Instance:
-    default_config = {'version': 'latest'}
+class InstanceConfig(PersistentConfig):
+    def __init__(self, instance_name):
+        default_config = {'version': 'latest'}
+        cfg_file = os.path.join('instances', instance_name, 'config.json')
+        PersistentConfig.__init__(self, cfg_file, default_config)
 
+    def get(self, *args, **kwargs):
+        return self.__dict__.get(*args, **kwargs) or gconf.get(*args, **kwargs)
+
+    def __getattr__(self, name):
+        try:
+            return self.__dict__[name]
+        except KeyError:
+            return getattr(gconf, name)
+
+
+class Instance:
     def __init__(self, name):
-        name = sanitize_name(name)
-        self.cfg_file = os.path.join('instances', name, 'config.json')
-        self.name = name
+        self.name = sanitize_name(name)
 
     def __enter__(self):
-        self.config = PersistentConfig(
-            self.cfg_file, defaults=self.default_config)
+        self.config = InstanceConfig(self.name)
         self.config.__enter__()
         return self
 
     def __exit__(self, ext_type, exc_value, traceback):
         self.config.__exit__(ext_type, exc_value, traceback)
         del self.config
+
+    def get_java(self):
+        return self.config.java_path
 
     def populate(self, version):
         self.config.version = version
@@ -129,7 +143,7 @@ class Instance:
         # This 'function' is quickly getting worse and worse.
         # Rewrite it.
 
-        java = '/usr/bin/java -Xmx1G'.split()  # This should not be hardcoded
+        java = [self.get_java(), '-Xmx1G']  # This should not be hardcoded.
         libs = list(v.lib_filenames())
         libs.append(v.jarfile)
 
@@ -172,7 +186,7 @@ class Instance:
             auth_uuid=account.get_uuid(),
             auth_access_token=account.get_access_token(),
             user_type='mojang',
-            version_type='picomc',
+            version_type='picomc/offline',
             user_properties={})
 
         fargs = java + jvmargs.split(' ') + [mc] + mcargs.split(' ')

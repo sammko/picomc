@@ -80,6 +80,9 @@ class PersistentConfig:
     def values(self):
         return (v for k, v in self.items())
 
+    def get(self, *args, **kwargs):
+        return self.__dict__.get(*args, **kwargs)
+
     def __load(self):
         logger.debug("Loading Config from {}.".format(self._filename))
         try:
