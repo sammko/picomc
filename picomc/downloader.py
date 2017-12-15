@@ -6,7 +6,10 @@ import urllib
 
 def check_aria2():
     try:
-        subprocess.run("aria2c --version".split())
+        subprocess.run(
+            "aria2c --version".split(),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL)
         return True
     except FileNotFoundError:
         return False
