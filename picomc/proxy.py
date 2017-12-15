@@ -11,3 +11,6 @@ class Proxy(object):
 
     def __setattr__(self, name, value):
         return setattr(self.__wrapped__(), name, value)
+
+    def __delattr__(self, name):
+        return delattr(self.__wrapped__(), name)

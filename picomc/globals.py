@@ -12,11 +12,7 @@ APP_ROOT = {
 }[sys.platform]()
 
 try:
-    PLATFORM_MAP = {
-        'darwin': 'osx',
-        'win32': 'windows',
-        'linux': 'linux'
-    }
+    PLATFORM_MAP = {'darwin': 'osx', 'win32': 'windows', 'linux': 'linux'}
     platform = PLATFORM_MAP[sys.platform]
 except KeyError:
     platform = sys.platform
@@ -46,3 +42,4 @@ def _get_object(name):
 ctx = Proxy(_ctx_ptr.get)
 am = Proxy(partial(_get_object, "am"))
 vm = Proxy(partial(_get_object, "vm"))
+gconf = Proxy(partial(_get_object, "gconf"))

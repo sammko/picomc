@@ -48,6 +48,11 @@ def file_sha1(filename):
     return h.hexdigest()
 
 
+def get_default_java():
+    # FIXME. This is just a placeholder.
+    return "/usr/bin/java"
+
+
 class PersistentConfig:
     def __init__(self, config_file, defaults={}):
         self._filename = os.path.join(APP_ROOT, config_file)
@@ -59,6 +64,21 @@ class PersistentConfig:
 
     def __exit__(self, ext_type, exc_value, traceback):
         self.__save()
+
+    # Maybe we should somehow subclass a dict instead of re-implementing these?
+    def __iter__(self):
+        return (n for n in self.__dict__ if not n.startswith('_'))
+
+    def keys(self):
+        return self.__iter__()
+
+    def items(self):
+        for k, v in self.__dict__.items():
+            if not k.startswith('_'):
+                yield (k, v)
+
+    def values(self):
+        return (v for k, v in self.items())
 
     def __load(self):
         logger.debug("Loading Config from {}.".format(self._filename))
