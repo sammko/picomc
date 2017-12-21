@@ -3,7 +3,7 @@ import uuid
 import click
 
 from picomc.globals import am
-from picomc.utils import PersistentConfig, cached_property
+from picomc.utils import PersistentConfig
 from picomc.yggdrasil import MojangYggdrasil
 
 
