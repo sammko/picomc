@@ -15,6 +15,9 @@ try:
     PLATFORM_MAP = {'darwin': 'osx', 'win32': 'windows', 'linux': 'linux'}
     platform = PLATFORM_MAP[sys.platform]
 except KeyError:
+    # This is probably not neccesary, as the game is not officialy supported
+    # on other platforms and natives are not available. (Unless you compile
+    # them and patch the corresponding version json)
     platform = sys.platform
 
 
