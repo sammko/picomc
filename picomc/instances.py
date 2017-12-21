@@ -7,7 +7,7 @@ import zipfile
 import click
 
 from picomc.globals import am, gconf, platform, vm
-from picomc.utils import PersistentConfig, get_filepath
+from picomc.utils import PersistentConfig, get_filepath, join_classpath
 
 logger = logging.getLogger('picomc.cli')
 
@@ -130,7 +130,7 @@ class Instance:
     def launch(self, account, version):
         vobj = vm.get_version(version or self.config.version)
         logger.info("Launching instance {}!".format(self.name))
-        logger.info("Using minecraft version: {}".format(vobj.version))
+        logger.info("Using minecraft version: {}".format(vobj.version_name))
         vobj.prepare()
         logger.info("Using account: {}".format(account))
         os.makedirs(
@@ -146,28 +146,26 @@ class Instance:
         java = [self.get_java(), '-Xmx1G']  # This should not be hardcoded.
         libs = list(v.lib_filenames())
         libs.append(v.jarfile)
+        classpath = join_classpath(*libs)
 
         # Make functions out of these two
         natives = get_filepath('instances', self.name, 'natives')
         gamedir = get_filepath('instances', self.name, 'minecraft')
 
-        vjson = v.raw_vspec
+        mc = v.vspec.mainClass
 
-        mc = vjson['mainClass']
-
-        if 'minecraftArguments' in vjson:
-            mcargs = vjson['minecraftArguments']
-            jvmargs = " ".join([
-                "-Djava.library.path={}".format(natives), '-cp', ':'.join(libs)
-            ])  # To match behaviour of process_arguments
-        elif 'arguments' in vjson:
-            mcargs, jvmargs = process_arguments(vjson['arguments'])
+        if hasattr(v.vspec, 'minecraftArguments'):
+            mcargs = v.vspec.minecraftArguments
+            jvmargs = " ".join(
+                ["-Djava.library.path={}".format(natives), '-cp', classpath])
+        elif hasattr(v.vspec, 'arguments'):
+            mcargs, jvmargs = process_arguments(v.vspec.arguments)
             jvmargs = jvmargs.replace("${", "{")
             jvmargs = jvmargs.format(
                 natives_directory=natives,
                 launcher_name='picomc',
                 launcher_version='0',  # Do something proper here. FIXME.
-                classpath=":".join(libs))
+                classpath=classpath)
 
         # Convert java-like subtitution strings to python. FIXME.
         mcargs = mcargs.replace("${", "{")
@@ -177,10 +175,10 @@ class Instance:
             # Only used in old versions.
             auth_session="token:{}:{}".format(account.get_access_token(),
                                               account.get_uuid()),
-            version_name=v.version,
+            version_name=v.version_name,
             game_directory=gamedir,
             assets_root=get_filepath('assets'),
-            assets_index_name=vjson['assetIndex']['id'],
+            assets_index_name=v.vspec.assetIndex['id'],
             # FIXME Ugly hack relying on untested behaviour:
             game_assets=get_filepath('assets', 'virtual', 'legacy'),
             auth_uuid=account.get_uuid(),

@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+import sys
 from functools import partial
 
 from picomc.globals import APP_ROOT
@@ -23,6 +24,11 @@ class cached_property(object):
 
 def get_filepath(*f):
     return os.path.join(APP_ROOT, *f)
+
+
+def join_classpath(*cp):
+    sep = ';' if (sys.platform == 'win32') else ':'
+    return sep.join(cp)
 
 
 def check_directories():

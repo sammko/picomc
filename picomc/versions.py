@@ -1,8 +1,10 @@
 import json
 import logging
+import operator
 import os
 import sys
 import urllib
+from functools import reduce
 
 import click
 import requests
@@ -39,27 +41,103 @@ VersionType.SNAPSHOT = VersionType('snapshot')
 VersionType.ALPHA = VersionType('old_alpha')
 VersionType.BETA = VersionType('old_beta')
 
+MODE_OVERRIDE = 0
+MODE_REDUCE = 1
+
+
+class CachedVspecAttr(object):
+    @staticmethod
+    def rf_dict_update(lower, upper):
+        lc = lower.copy()
+        lc.update(upper)
+        return lc
+
+    def __init__(self,
+                 attr,
+                 mode=MODE_OVERRIDE,
+                 reduce_func=None,
+                 default=None):
+        self.attr = attr
+        self.mode = mode
+        self.rfunc = reduce_func
+        self.default = default
+
+    def __get__(self, vspec, cls):
+        try:
+            if vspec is None:
+                return self
+            if self.mode == MODE_OVERRIDE:
+                for v in vspec.chain:
+                    if self.attr in v.raw_vspec:
+                        r = v.raw_vspec[self.attr]
+                        break
+                else:
+                    raise AttributeError()
+            elif self.mode == MODE_REDUCE:
+                try:
+                    r = reduce(self.rfunc, (v.raw_vspec[self.attr]
+                                            for v in vspec.chain[::-1]
+                                            if self.attr in v.raw_vspec))
+                except TypeError as e:
+                    raise AttributeError() from e
+        except AttributeError as e:
+            if self.default:
+                r = self.default(vspec.vobj)
+        finally:
+            try:
+                setattr(vspec, self.attr, r)
+                return r
+            except UnboundLocalError as e:
+                raise AttributeError() from e
+
+
+class VersionSpec:
+    def __init__(self, vobj):
+        self.vobj = vobj
+        self.chain = self._resolve_chain()
+
+    def _resolve_chain(self):
+        chain = []
+        chain.append(self.vobj)
+        cv = self.vobj
+        while 'inheritsFrom' in cv.raw_vspec:
+            cv = Version(cv.raw_vspec['inheritsFrom'])
+            chain.append(cv)
+        return chain
+
+    minecraftArguments = CachedVspecAttr('minecraftArguments')
+    arguments = CachedVspecAttr('arguments')
+    mainClass = CachedVspecAttr('mainClass')
+    assetIndex = CachedVspecAttr('assetIndex')
+    libraries = CachedVspecAttr(
+        'libraries', mode=MODE_REDUCE, reduce_func=operator.add)
+    jar = CachedVspecAttr('jar', default=lambda vobj: vobj.version_name)
+    downloads = CachedVspecAttr('downloads')
+
 
 class Version:
     LIBRARIES_URL = "https://libraries.minecraft.net/"
     ASSETS_URL = "http://resources.download.minecraft.net/"
 
-    def __init__(self, version):
-        self.version = version
-        self.jarfile = get_filepath('versions', version,
-                                    '{}.jar'.format(version))
+    def __init__(self, version_name):
+        self.version_name = version_name
+
+    @cached_property
+    def jarfile(self):
+        v = self.vspec.jar
+        return get_filepath('versions', v, '{}.jar'.format(v))
 
     @cached_property
     def raw_vspec(self):
-        fpath = get_filepath('versions', self.version,
-                             '{}.json'.format(self.version))
+        fpath = get_filepath('versions', self.version_name,
+                             '{}.json'.format(self.version_name))
         if os.path.exists(fpath):
             with open(fpath) as fp:
                 return json.load(fp)
         else:
             url = None
             for v in vm.manifest['versions']:
-                if v['id'] == self.version:
+                if v['id'] == self.version_name:
                     url = v['url']
                     break
             if not url:
@@ -71,7 +149,7 @@ class Version:
                         del l['downloads']
                     except KeyError:
                         pass
-                dirpath = get_filepath('versions', self.version)
+                dirpath = get_filepath('versions', self.version_name)
                 os.makedirs(dirpath, exist_ok=True)
                 with open(fpath, 'w') as fp:
                     json.dump(j, fp, indent=4, sort_keys=True)
@@ -81,9 +159,13 @@ class Version:
                 sys.exit(1)
 
     @cached_property
+    def vspec(self):
+        return VersionSpec(self)
+
+    @cached_property
     def raw_asset_index(self):
-        iid = self.raw_vspec['assetIndex']['id']
-        url = self.raw_vspec['assetIndex']['url']
+        iid = self.vspec.assetIndex['id']
+        url = self.vspec.assetIndex['url']
         fpath = get_filepath('assets', 'indexes', '{}.json'.format(iid))
         if os.path.exists(fpath):
             with open(fpath) as fp:
@@ -101,7 +183,7 @@ class Version:
     def _libraries(self, natives_only=False):
         # The rule matching in this function could be cached,
         # not sure if worth it.
-        for lib in self.raw_vspec['libraries']:
+        for lib in self.vspec.libraries:
             rules = lib.get('rules', [])
             allow = 'rules' not in lib
             for rule in rules:
@@ -153,11 +235,11 @@ class Version:
     def download_jarfile(self, force=False):
         """Checks existence and hash of cached jar. Downloads a new one
         if either condition is violated."""
-        dlspec = self.raw_vspec['downloads']['client']
+        dlspec = self.vspec.downloads['client']
         logger.debug("Checking jarfile.")
         if force or not os.path.exists(self.jarfile) or \
            file_sha1(self.jarfile) != dlspec['sha1']:
-            logger.info("Downloading jar ({}).".format(self.version))
+            logger.info("Downloading jar ({}).".format(self.version_name))
             urllib.request.urlretrieve(dlspec['url'], self.jarfile)
 
     def download_libraries(self, force=False):
