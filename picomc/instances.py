@@ -85,9 +85,7 @@ def process_arguments(arguments_dict):
                     args.append(a['value'])
                 else:
                     logger.error("Unknown type of value field.")
-        # This is kind of stupid, but dramatically
-        # simplifies the subtitution stage. FIXME
-        return " ".join(args)
+        return args
 
     return (subproc(arguments_dict['game']), subproc(arguments_dict['jvm']))
 
@@ -157,39 +155,45 @@ class Instance:
         mc = v.vspec.mainClass
 
         if hasattr(v.vspec, 'minecraftArguments'):
-            mcargs = v.vspec.minecraftArguments
-            jvmargs = " ".join(
-                ["-Djava.library.path={}".format(natives), '-cp', classpath])
+            mcargs = v.vspec.minecraftArguments.split()
+            sjvmargs = [
+                "-Djava.library.path={}".format(natives), '-cp', classpath
+            ]
         elif hasattr(v.vspec, 'arguments'):
             mcargs, jvmargs = process_arguments(v.vspec.arguments)
-            jvmargs = jvmargs.replace("${", "{")
-            jvmargs = jvmargs.format(
-                natives_directory=natives,
-                launcher_name='picomc',
-                launcher_version='0',  # Do something proper here. FIXME.
-                classpath=classpath)
+            sjvmargs = []
+            for a in jvmargs:
+                a = a.replace("${", "{")
+                a = a.format(
+                    natives_directory=natives,
+                    launcher_name='picomc',
+                    launcher_version='0',  # Do something proper here. FIXME.
+                    classpath=classpath)
+                sjvmargs.append(a)
 
-        # Convert java-like subtitution strings to python. FIXME.
-        mcargs = mcargs.replace("${", "{")
+        smcargs = []
+        for a in mcargs:
+            # This should be done differently.
+            a = a.replace("${", "{")
+            a = a.format(
+                auth_player_name=account.username,
+                # Only used in old versions.
+                auth_session="token:{}:{}".format(account.get_access_token(),
+                                                  account.get_uuid()),
+                version_name=v.version_name,
+                game_directory=gamedir,
+                assets_root=get_filepath('assets'),
+                assets_index_name=v.vspec.assetIndex['id'],
+                # FIXME Ugly hack relying on untested behaviour:
+                game_assets=get_filepath('assets', 'virtual', 'legacy'),
+                auth_uuid=account.get_uuid(),
+                auth_access_token=account.get_access_token(),
+                user_type='mojang',
+                version_type='picomc/offline',
+                user_properties={})
+            smcargs.append(a)
 
-        mcargs = mcargs.format(
-            auth_player_name=account.username,
-            # Only used in old versions.
-            auth_session="token:{}:{}".format(account.get_access_token(),
-                                              account.get_uuid()),
-            version_name=v.version_name,
-            game_directory=gamedir,
-            assets_root=get_filepath('assets'),
-            assets_index_name=v.vspec.assetIndex['id'],
-            # FIXME Ugly hack relying on untested behaviour:
-            game_assets=get_filepath('assets', 'virtual', 'legacy'),
-            auth_uuid=account.get_uuid(),
-            auth_access_token=account.get_access_token(),
-            user_type='mojang',
-            version_type='picomc/offline',
-            user_properties={})
-
-        fargs = java + jvmargs.split(' ') + [mc] + mcargs.split(' ')
+        fargs = java + sjvmargs + [mc] + smcargs
         logger.debug("Launching: " + " ".join(fargs))
         subprocess.run(fargs, cwd=gamedir)
 
