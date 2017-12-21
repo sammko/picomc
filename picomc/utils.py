@@ -54,11 +54,6 @@ def file_sha1(filename):
     return h.hexdigest()
 
 
-def get_default_java():
-    # FIXME. This is just a placeholder.
-    return "java"
-
-
 class PersistentConfig:
     def __init__(self, config_file, defaults={}):
         self._filename = os.path.join(APP_ROOT, config_file)

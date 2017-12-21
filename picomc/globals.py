@@ -21,6 +21,18 @@ except KeyError:
     platform = sys.platform
 
 
+def get_default_java():
+    # FIXME. This is just a placeholder.
+    return "java"
+
+
+default_config = {
+    'java_path': get_default_java(),
+    'java_memory_min': '128M',
+    'java_memory_max': '1G'
+}
+
+
 class Ptr:
     _a = None
 

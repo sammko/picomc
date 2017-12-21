@@ -143,7 +143,9 @@ class Instance:
         # This 'function' is quickly getting worse and worse.
         # Rewrite it.
 
-        java = [self.get_java(), '-Xmx1G']  # This should not be hardcoded.
+        java = [self.get_java()]
+        java.append('-Xms{}'.format(self.config.java_memory_min))
+        java.append('-Xmx{}'.format(self.config.java_memory_max))
         libs = list(v.lib_filenames())
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
