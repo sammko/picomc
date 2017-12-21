@@ -148,6 +148,8 @@ class Instance:
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
 
+        version_type = 'picomc' if account.online else 'picomc/offline'
+
         # Make functions out of these two
         natives = get_filepath('instances', self.name, 'natives')
         gamedir = get_filepath('instances', self.name, 'minecraft')
@@ -176,20 +178,20 @@ class Instance:
             # This should be done differently.
             a = a.replace("${", "{")
             a = a.format(
-                auth_player_name=account.username,
+                auth_player_name=account.name,
                 # Only used in old versions.
                 auth_session="token:{}:{}".format(account.get_access_token(),
-                                                  account.get_uuid()),
+                                                  account.uuid),
                 version_name=v.version_name,
                 game_directory=gamedir,
                 assets_root=get_filepath('assets'),
                 assets_index_name=v.vspec.assetIndex['id'],
                 # FIXME Ugly hack relying on untested behaviour:
                 game_assets=get_filepath('assets', 'virtual', 'legacy'),
-                auth_uuid=account.get_uuid(),
+                auth_uuid=account.uuid,
                 auth_access_token=account.get_access_token(),
                 user_type='mojang',
-                version_type='picomc/offline',
+                version_type=version_type,
                 user_properties={})
             smcargs.append(a)
 

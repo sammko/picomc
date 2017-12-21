@@ -3,30 +3,91 @@ import uuid
 import click
 
 from picomc.globals import am
-from picomc.utils import PersistentConfig
+from picomc.utils import PersistentConfig, cached_property
+from picomc.yggdrasil import MojangYggdrasil
 
 
 class NAMESPACE_NULL:
     bytes = b''
 
 
+def generate_client_token():
+    # Any random string, this matches the behaviour of the official launcher.
+    return str(uuid.uuid4())
+
+
 class Account:
-    def __init__(self, username):
-        self.username = username
-        self.is_default = False
+    def __init__(self, **kwargs):
+        self.__dict__.update(self.DEFAULTS)
+        self.__dict__.update(kwargs)
+
+    def __repr__(self):
+        return self.name
 
     def to_dict(self):
-        return {}
+        return {k: getattr(self, k) for k in self.DEFAULTS.keys()}
 
-    def get_uuid(self):
-        return uuid.uuid3(NAMESPACE_NULL,
-                          "OfflinePlayer:{}".format(self.username)).hex
+    @classmethod
+    def from_config(cls, name, config):
+        c = OnlineAccount if config.get('online', False) else OfflineAccount
+        return c(name=name, **config)
+
+
+class OfflineAccount(Account):
+    DEFAULTS = {'uuid': '-', 'online': False}
+
+    @classmethod
+    def new(cls, name):
+        u = uuid.uuid3(NAMESPACE_NULL, "OfflinePlayer:{}".format(name)).hex
+        return cls(name=name, uuid=u)
 
     def get_access_token(self):
         return '-'
 
-    def __repr__(self):
-        return self.username
+    @property
+    def gname(self):
+        return self.name
+
+
+class OnlineAccount(Account):
+    DEFAULTS = {
+        'uuid': '-',
+        'online': True,
+        'access_token': '-',
+        'is_authenticated': False,
+        'username': '-'
+    }
+
+    fresh = False
+
+    @classmethod
+    def new(cls, name, username):
+        return cls(name=name, username=username)
+
+    def validate(self):
+        return am.yggdrasil.validate(self.access_token)
+
+    def refresh(self):
+        if self.is_authenticated:
+            if self.validate():
+                return
+            else:
+                refresh = am.yggdrasil.refresh(self.access_token)
+                self.access_token, self.uuid, self.gname = refresh
+        else:
+            raise AccountError("Not authenticated.")
+
+    def authenticate(self, password):
+        self.access_token, self.uuid, self.gname = am.yggdrasil.authenticate(
+            self.username, password)
+        self.is_authenticated = True
+
+    def get_access_token(self):
+        if self.fresh:
+            return self.access_token
+        self.refresh()
+        self.fresh = True
+        return self.access_token
 
 
 class AccountError(ValueError):
@@ -34,13 +95,20 @@ class AccountError(ValueError):
         return " ".join(self.args)
 
 
+DEFAULT_CONFIG = {
+    'default': None,
+    'accounts': {},
+    'client_token': generate_client_token()
+}
+
+
 class AccountManager:
     cfg_file = 'accounts.json'
-    default_config = {'default': None, 'accounts': {}}
 
     def __enter__(self):
-        self.config = PersistentConfig(self.cfg_file, self.default_config)
+        self.config = PersistentConfig(self.cfg_file, DEFAULT_CONFIG)
         self.config.__enter__()
+        self.yggdrasil = MojangYggdrasil(self.config.client_token)
         return self
 
     def __exit__(self, ext_type, exc_value, traceback):
@@ -52,7 +120,7 @@ class AccountManager:
 
     def get(self, name):
         try:
-            acc = Account(username=name, **self.config.accounts[name])
+            acc = Account.from_config(name, self.config.accounts[name])
             acc.is_default = (self.config.default == name)
             return acc
         except KeyError as ke:
@@ -71,14 +139,17 @@ class AccountManager:
         return name == self.config.default
 
     def set_default(self, account):
-        self.config.default = account.username
+        self.config.default = account.name
 
     def add(self, account):
-        if am.exists(account.username):
+        if am.exists(account.name):
             raise AccountError("An account already exists with that name.")
         if not self.config.default and not self.config.accounts:
-            self.config.default = account.username
-        self.config.accounts[account.username] = account.to_dict()
+            self.config.default = account.name
+        self.save(account)
+
+    def save(self, account):
+        self.config.accounts[account.name] = account.to_dict()
 
     def remove(self, name):
         try:
@@ -107,29 +178,47 @@ def list():
 
 
 @accounts_cli.command()
-@click.argument('username')
-def create(username):
+@click.argument('name')
+@click.option('--username', '-u', default='')
+def create(name, username):
     """Add an account."""
     try:
-        am.add(Account(username=username))
+        if username:
+            acc = OnlineAccount.new(name, username)
+        else:
+            acc = OfflineAccount.new(name)
+        am.add(acc)
     except AccountError as e:
         print(e)
 
 
 @accounts_cli.command()
-@click.argument('username')
-def remove(username):
+@click.argument('name')
+def authenticate(name):
+    import getpass
     try:
-        am.remove(username)
+        a = am.get(name)
+        p = getpass.getpass("Password: ")
+        a.authenticate(p)
+        am.save(a)
     except AccountError as e:
         print(e)
 
 
 @accounts_cli.command()
-@click.argument('username')
-def setdefault(username):
+@click.argument('name')
+def remove(name):
     try:
-        default = am.get(username)
+        am.remove(name)
+    except AccountError as e:
+        print(e)
+
+
+@accounts_cli.command()
+@click.argument('name')
+def setdefault(name):
+    try:
+        default = am.get(name)
         am.set_default(default)
     except AccountError as e:
         print(e)
