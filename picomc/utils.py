@@ -56,7 +56,7 @@ def file_sha1(filename):
 
 def get_default_java():
     # FIXME. This is just a placeholder.
-    return "/usr/bin/java"
+    return "java"
 
 
 class PersistentConfig:
