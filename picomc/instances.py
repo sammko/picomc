@@ -6,6 +6,7 @@ import zipfile
 
 import click
 
+from picomc.accounts import AccountError
 from picomc.globals import am, gconf, platform, vm
 from picomc.utils import PersistentConfig, get_filepath, join_classpath
 
@@ -234,7 +235,10 @@ def launch(name, account, version_override):
         logger.error("No such instance exists.")
         return
     with Instance(name) as inst:
-        inst.launch(account, version_override)
+        try:
+            inst.launch(account, version_override)
+        except AccountError as e:
+            logger.error("Not launching due to account error: {}".format(e))
 
 
 @instance_cli.command()

@@ -3,6 +3,14 @@ from urllib.parse import urljoin
 import requests
 
 
+class AuthenticationError(Exception):
+    pass
+
+
+class RefreshError(AuthenticationError):
+    pass
+
+
 class MojangYggdrasil:
     BASE_URL = "https://authserver.mojang.com"
 
@@ -24,6 +32,9 @@ class MojangYggdrasil:
                 "requestUser": True
             })
         j = resp.json()
+        if resp.status_code == 403:
+            raise AuthenticationError("Failed to authenticate",
+                                      j['errorMessage'])
         access_token = j['accessToken']
         uuid = j['selectedProfile']['id']
         name = j['selectedProfile']['name']
@@ -39,6 +50,8 @@ class MojangYggdrasil:
                 "requestUser": True
             })
         j = resp.json()
+        if resp.status_code == 403:
+            raise RefreshError("Failed to refresh", j['errorMessage'])
         access_token = j['accessToken']
         uuid = j['selectedProfile']['id']
         name = j['selectedProfile']['name']

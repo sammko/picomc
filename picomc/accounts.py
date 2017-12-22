@@ -1,10 +1,13 @@
+import logging
 import uuid
 
 import click
 
 from picomc.globals import am
 from picomc.utils import PersistentConfig
-from picomc.yggdrasil import MojangYggdrasil
+from picomc.yggdrasil import AuthenticationError, MojangYggdrasil, RefreshError
+
+logger = logging.getLogger('picomc.cli')
 
 
 class NAMESPACE_NULL:
@@ -72,8 +75,16 @@ class OnlineAccount(Account):
             if self.validate():
                 return
             else:
-                refresh = am.yggdrasil.refresh(self.access_token)
-                self.access_token, self.uuid, self.gname = refresh
+                try:
+                    refresh = am.yggdrasil.refresh(self.access_token)
+                    self.access_token, self.uuid, self.gname = refresh
+                except RefreshError as e:
+                    logger.error("Failed to refresh access_token,"
+                                 " please authenticate again.")
+                    self.is_authenticated = False
+                    raise e
+                finally:
+                    am.save(self)
         else:
             raise AccountError("Not authenticated.")
 
@@ -81,6 +92,7 @@ class OnlineAccount(Account):
         self.access_token, self.uuid, self.gname = am.yggdrasil.authenticate(
             self.username, password)
         self.is_authenticated = True
+        am.save(self)
 
     def get_access_token(self):
         if self.fresh:
@@ -200,8 +212,17 @@ def authenticate(name):
         a = am.get(name)
         p = getpass.getpass("Password: ")
         a.authenticate(p)
-        am.save(a)
-    except AccountError as e:
+    except AuthenticationError as e:
+        print(e)
+
+
+@accounts_cli.command()
+@click.argument('name')
+def refresh(name):
+    try:
+        a = am.get(name)
+        a.refresh()
+    except (AccountError, RefreshError) as e:
         print(e)
 
 
