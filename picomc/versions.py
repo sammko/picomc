@@ -341,11 +341,16 @@ def version_cli():
 
 
 @version_cli.command()
-@click.option('--release/--no-release', default=True)
+@click.option('--release', is_flag=True, default=False)
 @click.option('--snapshot', is_flag=True, default=False)
 @click.option('--alpha', is_flag=True, default=False)
 @click.option('--beta', is_flag=True, default=False)
-def list(release, snapshot, alpha, beta):
+@click.option('--all', is_flag=True, default=False)
+def list(release, snapshot, alpha, beta, all):
+    if all:
+        release = snapshot = alpha = beta = True
+    elif not (release or snapshot or alpha or beta):
+        release = True
     T = VersionType.create(release, snapshot, alpha, beta)
     print('\n'.join(vm.version_list(vtype=T)))
 
