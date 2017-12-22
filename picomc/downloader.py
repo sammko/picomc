@@ -3,6 +3,8 @@ import shutil
 import subprocess
 import urllib
 
+from picomc.logging import logger
+
 
 def check_aria2():
     try:
@@ -60,7 +62,9 @@ class DownloadQueue:
         if not self.q:
             return
         if check_aria2():
+            logger.info("Using aria2 downloader.")
             downloader = downloader_aria2
         else:
+            logger.info("Using urllib downloader.")
             downloader = downloader_urllib
         downloader(self.q, d)

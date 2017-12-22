@@ -4,7 +4,7 @@ import click
 
 from picomc.globals import am
 from picomc.logging import logger
-from picomc.utils import PersistentConfig
+from picomc.utils import ConfigLoader
 from picomc.yggdrasil import AuthenticationError, MojangYggdrasil, RefreshError
 
 
@@ -14,7 +14,7 @@ class NAMESPACE_NULL:
 
 def generate_client_token():
     # Any random string, this matches the behaviour of the official launcher.
-    return str(uuid.uuid4())
+    return str(uuid.uuid4().hex)
 
 
 class Account:
@@ -116,56 +116,57 @@ class AccountManager:
     cfg_file = 'accounts.json'
 
     def __enter__(self):
-        self.config = PersistentConfig(self.cfg_file, DEFAULT_CONFIG)
-        self.config.__enter__()
-        self.yggdrasil = MojangYggdrasil(self.config.client_token)
+        self._cl = ConfigLoader(self.cfg_file, DEFAULT_CONFIG)
+        self.config = self._cl.__enter__()
+        self.yggdrasil = MojangYggdrasil(self.config['client_token'])
         return self
 
     def __exit__(self, ext_type, exc_value, traceback):
-        self.config.__exit__(ext_type, exc_value, traceback)
+        self._cl.__exit__(ext_type, exc_value, traceback)
         del self.config
+        del self._cl
 
     def list(self):
-        return self.config.accounts.keys()
+        return self.config['accounts'].keys()
 
     def get(self, name):
         try:
-            acc = Account.from_config(name, self.config.accounts[name])
-            acc.is_default = (self.config.default == name)
+            acc = Account.from_config(name, self.config['accounts'][name])
+            acc.is_default = (self.config['default'] == name)
             return acc
         except KeyError as ke:
             raise AccountError("Account does not exist:", name) from ke
 
     def exists(self, name):
-        return name in self.config.accounts
+        return name in self.config['accounts']
 
     def get_default(self):
-        default = self.config.default
+        default = self.config['default']
         if not default:
             raise AccountError("Default account not configured.")
         return self.get(default)
 
     def is_default(self, name):
-        return name == self.config.default
+        return name == self.config['default']
 
     def set_default(self, account):
-        self.config.default = account.name
+        self.config['default'] = account.name
 
     def add(self, account):
         if am.exists(account.name):
             raise AccountError("An account already exists with that name.")
-        if not self.config.default and not self.config.accounts:
-            self.config.default = account.name
+        if not self.config['default'] and not self.config['accounts']:
+            self.config['default'] = account.name
         self.save(account)
 
     def save(self, account):
-        self.config.accounts[account.name] = account.to_dict()
+        self.config['accounts'][account.name] = account.to_dict()
 
     def remove(self, name):
         try:
-            if self.config.default == name:
-                self.config.default = None
-            del self.config.accounts[name]
+            if self.config['default'] == name:
+                self.config['default'] = None
+            del self.config['accounts'][name]
         except KeyError:
             raise AccountError("Account does not exist:", name)
 

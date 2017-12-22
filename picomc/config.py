@@ -20,15 +20,15 @@ def show():
 @click.argument('key')
 @click.argument('value')
 def set(key, value):
-    setattr(gconf, key, value)
+    gconf[key] = value
 
 
 @config_cli.command()
 @click.argument('key')
 def get(key):
     try:
-        print(getattr(gconf, key))
-    except AttributeError:
+        print(gconf[key])
+    except KeyError:
         print("No such attribute.")
 
 

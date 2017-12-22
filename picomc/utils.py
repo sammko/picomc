@@ -52,52 +52,31 @@ def file_sha1(filename):
     return h.hexdigest()
 
 
-class PersistentConfig:
-    def __init__(self, config_file, defaults={}):
-        self._filename = os.path.join(APP_ROOT, config_file)
-        self.__dict__.update(defaults)
+class ConfigLoader:
+    def __init__(self, config_file, defaults={}, dict_impl=dict):
+        self.filename = os.path.join(APP_ROOT, config_file)
+        self.dict_impl = dict_impl
+        self.data = dict_impl(defaults)
 
     def __enter__(self):
-        self.__load()
-        return self
+        self._load()
+        return self.data
 
     def __exit__(self, ext_type, exc_value, traceback):
-        self.__save()
+        self._save()
 
-    # Maybe we should somehow subclass a dict instead of re-implementing these?
-    def __iter__(self):
-        return (n for n in self.__dict__ if not n.startswith('_'))
-
-    def keys(self):
-        return self.__iter__()
-
-    def items(self):
-        for k, v in self.__dict__.items():
-            if not k.startswith('_'):
-                yield (k, v)
-
-    def values(self):
-        return (v for k, v in self.items())
-
-    def get(self, *args, **kwargs):
-        return self.__dict__.get(*args, **kwargs)
-
-    def __load(self):
-        logger.debug("Loading Config from {}.".format(self._filename))
+    def _load(self):
+        logger.debug("Loading Config from {}.".format(self.filename))
         try:
-            with open(self._filename, 'r') as json_file:
-                self.__dict__.update(json.load(json_file))
+            with open(self.filename, 'r') as json_file:
+                self.data.update(
+                    json.load(
+                        json_file, object_hook=lambda d: self.dict_impl(d)))
         except FileNotFoundError:
             pass
 
-    def __save(self):
-        logger.debug("Saving Config to {}.".format(self._filename))
-        os.makedirs(os.path.dirname(self._filename), exist_ok=True)
-        with open(self._filename, 'w') as json_file:
-            json.dump(
-                {
-                    k: v
-                    for k, v in self.__dict__.items() if not k.startswith('_')
-                },
-                json_file,
-                indent=4)
+    def _save(self):
+        logger.debug("Saving Config to {}.".format(self.filename))
+        os.makedirs(os.path.dirname(self.filename), exist_ok=True)
+        with open(self.filename, 'w') as json_file:
+            json.dump(self.data, json_file, indent=4)

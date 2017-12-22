@@ -14,3 +14,12 @@ class Proxy(object):
 
     def __delattr__(self, name):
         return delattr(self.__wrapped__(), name)
+
+    def __getitem__(self, name):
+        return self.__wrapped__()[name]
+
+    def __setitem__(self, name, value):
+        return self.__wrapped__().__setitem__(name, value)
+
+    def __delitem__(self, name):
+        return self.__wrapped__().__delitem__(name)

@@ -7,8 +7,8 @@ import click
 
 from picomc.accounts import AccountError
 from picomc.globals import am, gconf, platform, vm
-from picomc.utils import PersistentConfig, get_filepath, join_classpath
 from picomc.logging import logger
+from picomc.utils import ConfigLoader, get_filepath, join_classpath
 
 
 class NativesExtractor:
@@ -89,20 +89,20 @@ def process_arguments(arguments_dict):
     return (subproc(arguments_dict['game']), subproc(arguments_dict['jvm']))
 
 
-class InstanceConfig(PersistentConfig):
+class BackupDict(dict):
+    def __getitem__(self, i):
+        try:
+            return dict.__getitem__(self, i)
+        except KeyError:
+            return gconf[i]
+
+
+class InstanceConfigLoader(ConfigLoader):
     def __init__(self, instance_name):
         default_config = {'version': 'latest'}
         cfg_file = os.path.join('instances', instance_name, 'config.json')
-        PersistentConfig.__init__(self, cfg_file, default_config)
-
-    def get(self, *args, **kwargs):
-        return self.__dict__.get(*args, **kwargs) or gconf.get(*args, **kwargs)
-
-    def __getattr__(self, name):
-        try:
-            return self.__dict__[name]
-        except KeyError:
-            return getattr(gconf, name)
+        ConfigLoader.__init__(
+            self, cfg_file, default_config, dict_impl=BackupDict)
 
 
 class Instance:
@@ -110,22 +110,23 @@ class Instance:
         self.name = sanitize_name(name)
 
     def __enter__(self):
-        self.config = InstanceConfig(self.name)
-        self.config.__enter__()
+        self._cl = InstanceConfigLoader(self.name)
+        self.config = self._cl.__enter__()
         return self
 
     def __exit__(self, ext_type, exc_value, traceback):
-        self.config.__exit__(ext_type, exc_value, traceback)
+        self._cl.__exit__(ext_type, exc_value, traceback)
         del self.config
+        del self._cl
 
     def get_java(self):
-        return self.config.java_path
+        return self.config['java.path']
 
     def populate(self, version):
-        self.config.version = version
+        self.config['version'] = version
 
     def launch(self, account, version):
-        vobj = vm.get_version(version or self.config.version)
+        vobj = vm.get_version(version or self.config['version'])
         logger.info("Launching instance {}!".format(self.name))
         logger.info("Using minecraft version: {}".format(vobj.version_name))
         vobj.prepare()
@@ -141,8 +142,8 @@ class Instance:
         # Rewrite it.
 
         java = [self.get_java()]
-        java.append('-Xms{}'.format(self.config.java_memory_min))
-        java.append('-Xmx{}'.format(self.config.java_memory_max))
+        java.append('-Xms{}'.format(self.config['java.memory.min']))
+        java.append('-Xmx{}'.format(self.config['java.memory.max']))
         libs = list(v.lib_filenames())
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)

@@ -5,10 +5,10 @@ import click
 import picomc.logging
 from picomc.accounts import AccountManager, accounts_cli
 from picomc.config import config_cli
-from picomc.globals import APP_ROOT, _ctx_ptr, ctx, default_config
+from picomc.globals import APP_ROOT, _ctx_ptr, ctx
 from picomc.instances import instance_cli
 from picomc.logging import logger
-from picomc.utils import PersistentConfig, check_directories
+from picomc.utils import ConfigLoader, check_directories
 from picomc.versions import VersionManager, version_cli
 
 
@@ -28,8 +28,13 @@ def picomc_cli(es, debug, root):
 
     am = es.enter_context(AccountManager())
     ctx.am = am
+    default_config = {
+        'java.path': 'java',
+        'java.memory.min': '128M',
+        'java.memory.max': '1G'
+    }
     gconf = es.enter_context(
-        PersistentConfig('config.json', defaults=default_config))
+        ConfigLoader('config.json', defaults=default_config))
     ctx.gconf = gconf
     ctx.vm = VersionManager()
 

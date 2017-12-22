@@ -206,15 +206,18 @@ class Version:
                 logger.warn(("Native library ({}) not available"
                              "for current platform ({}).").format(
                                  lib['name'], platform))
+                return None
         fullname = lib['name']
         url_base = lib.get('url', Version.LIBRARIES_URL)
-        p, n, v = fullname.split(":")
+        p, n, v, *va = fullname.split(":")
+        v2 = "-".join([v] + va)
 
         class LibPaths:
             package = p.replace('.', '/')
             name = n
             version = v
-            filename = "{}-{}{}.jar".format(name, version, suffix)
+            ext_version = v2
+            filename = "{}-{}{}.jar".format(name, ext_version, suffix)
             fullpath = "{}/{}/{}/{}".format(package, name, version, filename)
             url = urllib.parse.urljoin(url_base, fullpath)
             basedir = get_filepath('libraries')
@@ -225,9 +228,11 @@ class Version:
 
     def lib_filenames(self, natives=False):
         for lib in self._libraries(natives):
-            if 'natives' in lib and not natives:
+            if not natives and 'natives' in lib:
                 continue
             paths = self._resolve_library(lib)
+            if not paths:
+                continue
             yield paths.local_abspath
 
     def download_jarfile(self, force=False):
@@ -246,13 +251,14 @@ class Version:
         q = DownloadQueue()
         for lib in self._libraries():
             paths = self._resolve_library(lib)
+            if not paths:
+                continue
             if force or not os.path.exists(paths.local_abspath):
                 q.add(paths.url, paths.local_relpath)
         q.download(paths.basedir)
 
     def download_assets(self, force=False):
         """Downloads missing assets."""
-        logger.info("Checking assets.")
         # Produce reverse dict, as multiple files with a single hash
         # can exist and should only be downloaded once.
         rev = dict()
@@ -262,6 +268,9 @@ class Version:
                 rev[h].append(name)
             else:
                 rev[h] = [name]
+
+        logger.info("Downloading/checking {} assets. This may take a while.".
+                    format(len(rev.keys())))
 
         q = DownloadQueue()
         for digest, names in rev.items():
