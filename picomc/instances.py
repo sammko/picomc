@@ -1,4 +1,3 @@
-import logging
 import os
 import shutil
 import subprocess
@@ -9,8 +8,7 @@ import click
 from picomc.accounts import AccountError
 from picomc.globals import am, gconf, platform, vm
 from picomc.utils import PersistentConfig, get_filepath, join_classpath
-
-logger = logging.getLogger('picomc.cli')
+from picomc.logging import logger
 
 
 class NativesExtractor:

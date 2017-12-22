@@ -1,13 +1,11 @@
-import logging
 import uuid
 
 import click
 
 from picomc.globals import am
+from picomc.logging import logger
 from picomc.utils import PersistentConfig
 from picomc.yggdrasil import AuthenticationError, MojangYggdrasil, RefreshError
-
-logger = logging.getLogger('picomc.cli')
 
 
 class NAMESPACE_NULL:

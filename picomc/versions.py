@@ -1,5 +1,4 @@
 import json
-import logging
 import operator
 import os
 import sys
@@ -11,9 +10,8 @@ import requests
 
 from picomc.downloader import DownloadQueue
 from picomc.globals import platform, vm
+from picomc.logging import logger
 from picomc.utils import cached_property, file_sha1, get_filepath
-
-logger = logging.getLogger('picomc.cli')
 
 
 class VersionType:

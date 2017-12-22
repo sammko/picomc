@@ -1,4 +1,3 @@
-import logging
 from contextlib import ExitStack
 
 import click
@@ -8,10 +7,9 @@ from picomc.accounts import AccountManager, accounts_cli
 from picomc.config import config_cli
 from picomc.globals import APP_ROOT, _ctx_ptr, ctx, default_config
 from picomc.instances import instance_cli
+from picomc.logging import logger
 from picomc.utils import PersistentConfig, check_directories
 from picomc.versions import VersionManager, version_cli
-
-logger = logging.getLogger('picomc.cli')
 
 
 @click.group()

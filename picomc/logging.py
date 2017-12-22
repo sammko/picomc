@@ -1,9 +1,9 @@
 import logging
 
+logger = logging.getLogger('picomc.cli')
+
 
 def initialize(debug):
-    logger = logging.getLogger("picomc.cli")
-
     if debug:
         logger.setLevel(logging.DEBUG)
     else:

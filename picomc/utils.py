@@ -1,13 +1,11 @@
 import hashlib
 import json
-import logging
 import os
 import sys
 from functools import partial
 
 from picomc.globals import APP_ROOT
-
-logger = logging.getLogger("picomc.cli")
+from picomc.logging import logger
 
 
 class cached_property(object):
