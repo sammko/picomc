@@ -8,7 +8,7 @@ from picomc.config import config_cli
 from picomc.globals import APP_ROOT, _ctx_ptr, ctx
 from picomc.instances import instance_cli
 from picomc.logging import logger
-from picomc.utils import ConfigLoader, check_directories
+from picomc.utils import ConfigLoader, check_directories, write_profiles_dummy
 from picomc.versions import VersionManager, version_cli
 
 
@@ -22,6 +22,8 @@ def picomc_cli(es, debug, root):
     picomc.logging.initialize(debug)
     picomc.globals.APP_ROOT = root
     check_directories()
+
+    write_profiles_dummy()
 
     logger.debug(
         "Using application directory: {}".format(picomc.globals.APP_ROOT))

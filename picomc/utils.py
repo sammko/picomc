@@ -44,6 +44,13 @@ def check_directories():
             pass
 
 
+def write_profiles_dummy():
+    # This file makes the forge installer happy.
+    fname = get_filepath('launcher_profiles.json')
+    with open(fname, 'w') as fd:
+        fd.write(r'{"profiles":{}}')
+
+
 def file_sha1(filename):
     h = hashlib.sha1()
     with open(filename, 'rb', buffering=0) as f:
