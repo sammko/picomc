@@ -324,11 +324,17 @@ class VersionManager:
                 logger.warn("Cached version manifest not available.")
                 raise RuntimeError("Failed to retrieve version manifest.")
 
-    def version_list(self, vtype=VersionType.RELEASE):
-        return [
+    def version_list(self, vtype=VersionType.RELEASE, local=False):
+        r = [
             v['id'] for v in self.manifest['versions']
             if vtype.match(v['type'])
         ]
+        if local:
+            import os
+            r += ("{}\t[local]".format(name)
+                  for name in os.listdir(get_filepath('versions'))
+                  if os.path.isdir(get_filepath('versions', name)))
+        return r
 
     def get_version(self, version):
         return Version(self.resolve_version(version))
@@ -345,14 +351,17 @@ def version_cli():
 @click.option('--snapshot', is_flag=True, default=False)
 @click.option('--alpha', is_flag=True, default=False)
 @click.option('--beta', is_flag=True, default=False)
+@click.option('--local', is_flag=True, default=False)
 @click.option('--all', is_flag=True, default=False)
-def list(release, snapshot, alpha, beta, all):
+def list(release, snapshot, alpha, beta, local, all):
     if all:
-        release = snapshot = alpha = beta = True
+        release = snapshot = alpha = beta = local = True
     elif not (release or snapshot or alpha or beta):
-        release = True
+        logger.info("Showing only locally installed versions. "
+                    "Use `version list --help` to get more info.")
+        local = True
     T = VersionType.create(release, snapshot, alpha, beta)
-    print('\n'.join(vm.version_list(vtype=T)))
+    print('\n'.join(vm.version_list(vtype=T, local=local)))
 
 
 @version_cli.command()
