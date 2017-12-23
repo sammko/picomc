@@ -44,12 +44,6 @@ MODE_REDUCE = 1
 
 
 class CachedVspecAttr(object):
-    @staticmethod
-    def rf_dict_update(lower, upper):
-        lc = lower.copy()
-        lc.update(upper)
-        return lc
-
     def __init__(self,
                  attr,
                  mode=MODE_OVERRIDE,
@@ -61,9 +55,9 @@ class CachedVspecAttr(object):
         self.default = default
 
     def __get__(self, vspec, cls):
+        if vspec is None:
+            return self
         try:
-            if vspec is None:
-                return self
             if self.mode == MODE_OVERRIDE:
                 for v in vspec.chain:
                     if self.attr in v.raw_vspec:
@@ -204,7 +198,7 @@ class Version:
                 suffix = "-" + lib['natives'][platform]
             else:
                 logger.warn(("Native library ({}) not available"
-                             "for current platform ({}).").format(
+                             "for current platform ({}). Ignoring.").format(
                                  lib['name'], platform))
                 return None
         fullname = lib['name']
@@ -301,11 +295,10 @@ class Version:
 
 
 class VersionManager:
-    # This class should probably be rearchitected
-    VERSION_MANIFEST = \
+    VERSION_MANIFEST_URL = \
         "https://launchermeta.mojang.com/mc/game/version_manifest.json"
 
-    def resolve_version(self, v):
+    def resolve_version_name(self, v):
         """Takes a metaversion and resolves to a version."""
         if v == 'latest':
             v = self.manifest['latest']['release']
@@ -317,16 +310,17 @@ class VersionManager:
 
     @cached_property
     def manifest(self):
+        manifest_filepath = get_filepath('versions', 'manifest.json')
         try:
-            m = requests.get(self.VERSION_MANIFEST).json()
-            with open(get_filepath('versions/manifest.json'), 'w') as mfile:
+            m = requests.get(self.VERSION_MANIFEST_URL).json()
+            with open(manifest_filepath, 'w') as mfile:
                 json.dump(m, mfile, indent=4, sort_keys=True)
             return m
         except requests.ConnectionError:
             logger.warn("Failed to retrieve version_manifest. "
                         "Check your internet connection.")
             try:
-                with open(get_filepath('versions/manifest.json')) as mfile:
+                with open(manifest_filepath) as mfile:
                     logger.warn("Using cached version_manifest.")
                     return json.load(mfile)
             except FileNotFoundError:
@@ -340,13 +334,13 @@ class VersionManager:
         ]
         if local:
             import os
-            r += ("{}\t[local]".format(name)
+            r += ("{} [local]".format(name)
                   for name in os.listdir(get_filepath('versions'))
                   if os.path.isdir(get_filepath('versions', name)))
         return r
 
-    def get_version(self, version):
-        return Version(self.resolve_version(version))
+    def get_version(self, version_name):
+        return Version(self.resolve_version_name(version_name))
 
 
 @click.group()

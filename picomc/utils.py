@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import sys
 from functools import partial
 
 from picomc.globals import APP_ROOT
@@ -25,8 +24,7 @@ def get_filepath(*f):
 
 
 def join_classpath(*cp):
-    sep = ';' if (sys.platform == 'win32') else ':'
-    return sep.join(cp)
+    return os.pathsep.join(cp)
 
 
 def check_directories():

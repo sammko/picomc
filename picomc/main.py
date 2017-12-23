@@ -33,7 +33,8 @@ def picomc_cli(es, debug, root):
     default_config = {
         'java.path': 'java',
         'java.memory.min': '128M',
-        'java.memory.max': '1G'
+        'java.memory.max': '1G',
+        'java.jvmargs': ''
     }
     gconf = es.enter_context(
         ConfigLoader('config.json', defaults=default_config))

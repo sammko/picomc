@@ -144,11 +144,13 @@ class Instance:
         java = [self.get_java()]
         java.append('-Xms{}'.format(self.config['java.memory.min']))
         java.append('-Xmx{}'.format(self.config['java.memory.max']))
+        java += self.config['java.jvmargs'].split()
         libs = list(v.lib_filenames())
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
 
-        version_type = 'picomc' if account.online else 'picomc/offline'
+        version_type, user_type = ('picomc', 'mojang') if account.online else (
+            'picomc/offline', 'offline')
 
         # Make functions out of these two
         natives = get_filepath('instances', self.name, 'natives')
@@ -173,26 +175,28 @@ class Instance:
                     classpath=classpath)
                 sjvmargs.append(a)
 
+        account.refresh()
+
         smcargs = []
         for a in mcargs:
             # This should be done differently.
             a = a.replace("${", "{")
             a = a.format(
-                auth_player_name=account.name,
+                auth_player_name=account.gname,
+                auth_uuid=account.uuid,
+                auth_access_token=account.access_token,
                 # Only used in old versions.
-                auth_session="token:{}:{}".format(account.get_access_token(),
+                auth_session="token:{}:{}".format(account.access_token,
                                                   account.uuid),
+                user_type=user_type,
+                user_properties={},
+                version_type=version_type,
                 version_name=v.version_name,
                 game_directory=gamedir,
                 assets_root=get_filepath('assets'),
                 assets_index_name=v.vspec.assetIndex['id'],
                 # FIXME Ugly hack relying on untested behaviour:
-                game_assets=get_filepath('assets', 'virtual', 'legacy'),
-                auth_uuid=account.uuid,
-                auth_access_token=account.get_access_token(),
-                user_type='mojang',
-                version_type=version_type,
-                user_properties={})
+                game_assets=get_filepath('assets', 'virtual', 'legacy'))
             smcargs.append(a)
 
         fargs = java + sjvmargs + [mc] + smcargs

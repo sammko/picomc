@@ -36,14 +36,12 @@ class Account:
 
 class OfflineAccount(Account):
     DEFAULTS = {'uuid': '-', 'online': False}
+    access_token = '-'
 
     @classmethod
     def new(cls, name):
         u = uuid.uuid3(NAMESPACE_NULL, "OfflinePlayer:{}".format(name)).hex
         return cls(name=name, uuid=u)
-
-    def get_access_token(self):
-        return '-'
 
     @property
     def gname(self):
@@ -54,6 +52,7 @@ class OnlineAccount(Account):
     DEFAULTS = {
         'uuid': '-',
         'online': True,
+        'gname': '-',
         'access_token': '-',
         'is_authenticated': False,
         'username': '-'
@@ -68,7 +67,9 @@ class OnlineAccount(Account):
     def validate(self):
         return am.yggdrasil.validate(self.access_token)
 
-    def refresh(self):
+    def refresh(self, force=False):
+        if self.fresh and not force:
+            return False
         if self.is_authenticated:
             if self.validate():
                 return
@@ -76,6 +77,8 @@ class OnlineAccount(Account):
                 try:
                     refresh = am.yggdrasil.refresh(self.access_token)
                     self.access_token, self.uuid, self.gname = refresh
+                    self.fresh = True
+                    return True
                 except RefreshError as e:
                     logger.error("Failed to refresh access_token,"
                                  " please authenticate again.")
@@ -90,14 +93,8 @@ class OnlineAccount(Account):
         self.access_token, self.uuid, self.gname = am.yggdrasil.authenticate(
             self.username, password)
         self.is_authenticated = True
-        am.save(self)
-
-    def get_access_token(self):
-        if self.fresh:
-            return self.access_token
-        self.refresh()
         self.fresh = True
-        return self.access_token
+        am.save(self)
 
 
 class AccountError(ValueError):
