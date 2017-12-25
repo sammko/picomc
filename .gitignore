@@ -1,1 +1,6 @@
 __pycache__/
+*.py[doc]
+*.egg
+*.egg-info
+build
+dist
