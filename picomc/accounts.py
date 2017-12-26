@@ -47,6 +47,9 @@ class OfflineAccount(Account):
     def gname(self):
         return self.name
 
+    def refresh(self):
+        return False
+
 
 class OnlineAccount(Account):
     DEFAULTS = {
