@@ -65,7 +65,10 @@ class OnlineAccount(Account):
         return cls(name=name, username=username)
 
     def validate(self):
-        return am.yggdrasil.validate(self.access_token)
+        r = am.yggdrasil.validate(self.access_token)
+        if r:
+            self.fresh = True
+        return r
 
     def refresh(self, force=False):
         if self.fresh and not force:
