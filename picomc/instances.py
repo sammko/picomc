@@ -4,8 +4,7 @@ import subprocess
 import zipfile
 
 import click
-
-from picomc.accounts import AccountError
+from picomc.account import AccountError
 from picomc.globals import am, gconf, platform, vm
 from picomc.logging import logger
 from picomc.utils import ConfigLoader, get_filepath, join_classpath
@@ -209,35 +208,37 @@ class Instance:
 
 
 @click.group()
-def instance_cli():
+@click.argument('instance_name')
+def instance_cli(instance_name):
     """Manage your instances."""
-    pass
+    global g_iname
+    g_iname = instance_name
 
 
-@instance_cli.command()
-@click.argument('name')
-@click.option('--version', default='latest')
-def create(name, version):
-    if Instance.exists(name):
+@click.command()
+@click.argument('version', default='latest')
+def create_instance(version):
+    """Create a new instance."""
+    if Instance.exists(g_iname):
         logger.error("An instance with that name already exists.")
         return
-    with Instance(name) as inst:
+    with Instance(g_iname) as inst:
         inst.populate(version)
 
 
 @instance_cli.command()
-@click.argument('name')
 @click.option('--account', default=None)
 @click.option('--version-override', default=None)
-def launch(name, account, version_override):
+def launch(account, version_override):
+    """Launch the instance."""
     if account is None:
         account = am.get_default()
     else:
         account = am.get(account)
-    if not Instance.exists(name):
+    if not Instance.exists(g_iname):
         logger.error("No such instance exists.")
         return
-    with Instance(name) as inst:
+    with Instance(g_iname) as inst:
         try:
             inst.launch(account, version_override)
         except AccountError as e:
@@ -245,10 +246,15 @@ def launch(name, account, version_override):
 
 
 @instance_cli.command()
-@click.argument('name', default="")
-def dir(name=''):
-    if not name:
+def dir():
+    """Print root directory of instance."""
+    if not g_iname:
         print(get_filepath('instances'))
     else:
         # Careful, if configurable instance dirs are added, this breaks.
-        print(get_filepath('instances', name))
+        print(get_filepath('instances', g_iname))
+
+
+def register_instance_cli(picomc_cli):
+    picomc_cli.add_command(instance_cli, name='instance')
+    picomc_cli.add_command(create_instance)

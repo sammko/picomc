@@ -7,7 +7,6 @@ from functools import reduce
 
 import click
 import requests
-
 from picomc.downloader import DownloadQueue
 from picomc.globals import platform, vm
 from picomc.logging import logger
@@ -343,20 +342,26 @@ class VersionManager:
         return Version(self.resolve_version_name(version_name))
 
 
+g_vobj = None
+
+
 @click.group()
-def version_cli():
-    """Get information about available Minecraft versions."""
-    pass
+@click.argument('version_name')
+def version_cli(version_name):
+    """Operate on local Minecraft versions."""
+    global g_vobj
+    g_vobj = vm.get_version(version_name)
 
 
-@version_cli.command()
+@click.command()
 @click.option('--release', is_flag=True, default=False)
 @click.option('--snapshot', is_flag=True, default=False)
 @click.option('--alpha', is_flag=True, default=False)
 @click.option('--beta', is_flag=True, default=False)
 @click.option('--local', is_flag=True, default=False)
 @click.option('--all', is_flag=True, default=False)
-def list(release, snapshot, alpha, beta, local, all):
+def list_versions(release, snapshot, alpha, beta, local, all):
+    """List available Minecraft versions."""
     if all:
         release = snapshot = alpha = beta = local = True
     elif not (release or snapshot or alpha or beta):
@@ -368,7 +373,10 @@ def list(release, snapshot, alpha, beta, local, all):
 
 
 @version_cli.command()
-@click.argument('version')
-def prepare(version):
-    vobj = vm.get_version(version)
-    vobj.prepare()
+def prepare():
+    g_vobj.prepare()
+
+
+def register_version_cli(root_cli):
+    root_cli.add_command(version_cli, "version")
+    root_cli.add_command(list_versions)

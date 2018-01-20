@@ -1,15 +1,14 @@
 from contextlib import ExitStack
 
 import click
-
 import picomc.logging
-from picomc.accounts import AccountManager, accounts_cli
-from picomc.config import config_cli
+from picomc.account import AccountManager, register_account_cli
+from picomc.config import register_config_cli
 from picomc.globals import APP_ROOT, _ctx_ptr, ctx
-from picomc.instances import instance_cli
+from picomc.instances import register_instance_cli
 from picomc.logging import logger
 from picomc.utils import ConfigLoader, check_directories, write_profiles_dummy
-from picomc.versions import VersionManager, version_cli
+from picomc.version import VersionManager, register_version_cli
 
 
 @click.group()
@@ -52,7 +51,7 @@ def main():
         picomc_cli(obj=estack)
 
 
-picomc_cli.add_command(accounts_cli, name="account")
-picomc_cli.add_command(version_cli, name="version")
-picomc_cli.add_command(instance_cli, name="instance")
-picomc_cli.add_command(config_cli, name="config")
+register_account_cli(picomc_cli)
+register_version_cli(picomc_cli)
+register_instance_cli(picomc_cli)
+register_config_cli(picomc_cli)

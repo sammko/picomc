@@ -1,5 +1,4 @@
 import click
-
 from picomc.globals import gconf
 
 
@@ -36,3 +35,7 @@ def get(key):
 @click.argument('key')
 def delete(key):
     delattr(gconf, key)
+
+
+def register_config_cli(picomc_cli):
+    picomc_cli.add_command(config_cli, name='config')

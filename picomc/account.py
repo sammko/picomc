@@ -1,7 +1,6 @@
 import uuid
 
 import click
-
 from picomc.globals import am
 from picomc.logging import logger
 from picomc.utils import ConfigLoader
@@ -174,14 +173,19 @@ class AccountManager:
             raise AccountError("Account does not exist:", name)
 
 
+g_aname = None
+
+
 @click.group()
-def accounts_cli():
+@click.argument('account_name')
+def account_cli(account_name):
     """Manage your accounts."""
-    pass
+    global g_aname
+    g_aname = account_name
 
 
-@accounts_cli.command()
-def list():
+@click.command()
+def list_accounts():
     """List avaiable accounts."""
     alist = am.list()
     if alist:
@@ -191,57 +195,60 @@ def list():
         print("No accounts.")
 
 
-@accounts_cli.command()
-@click.argument('name')
-@click.option('--username', '-u', default='')
-def create(name, username):
-    """Add an account."""
+@click.command()
+@click.argument('account_name')
+@click.argument('mojang_username', default='')
+def create_account(account_name, mojang_username):
+    """Create an account."""
     try:
-        if username:
-            acc = OnlineAccount.new(name, username)
+        if mojang_username:
+            acc = OnlineAccount.new(account_name, mojang_username)
         else:
-            acc = OfflineAccount.new(name)
+            acc = OfflineAccount.new(account_name)
         am.add(acc)
     except AccountError as e:
         print(e)
 
 
-@accounts_cli.command()
-@click.argument('name')
-def authenticate(name):
+@account_cli.command()
+def authenticate():
     import getpass
     try:
-        a = am.get(name)
+        a = am.get(g_aname)
+        # add some output here
         p = getpass.getpass("Password: ")
         a.authenticate(p)
     except AuthenticationError as e:
         print(e)
 
 
-@accounts_cli.command()
-@click.argument('name')
-def refresh(name):
+@account_cli.command()
+def refresh():
     try:
-        a = am.get(name)
+        a = am.get(g_aname)
         a.refresh()
     except (AccountError, RefreshError) as e:
         print(e)
 
 
-@accounts_cli.command()
-@click.argument('name')
-def remove(name):
+@account_cli.command()
+def remove():
     try:
-        am.remove(name)
+        am.remove(g_aname)
     except AccountError as e:
         print(e)
 
 
-@accounts_cli.command()
-@click.argument('name')
-def setdefault(name):
+@account_cli.command()
+def setdefault():
     try:
-        default = am.get(name)
+        default = am.get(g_aname)
         am.set_default(default)
     except AccountError as e:
         print(e)
+
+
+def register_account_cli(picomc_cli):
+    picomc_cli.add_command(account_cli, name='account')
+    picomc_cli.add_command(create_account)
+    picomc_cli.add_command(list_accounts)
