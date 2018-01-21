@@ -202,28 +202,54 @@ class Instance:
         logger.debug("Launching: " + " ".join(fargs))
         subprocess.run(fargs, cwd=gamedir)
 
-    @classmethod
-    def exists(cls, name):
-        return os.path.exists(get_filepath('instances', name))
+    @staticmethod
+    def exists(name):
+        return os.path.exists(get_filepath('instances', name, 'config.json'))
+
+    @staticmethod
+    def remove(name):
+        shutil.rmtree(get_filepath('instances', name))
+
+
+def instance_list():
+    import os
+    yield from (name for name in os.listdir(get_filepath('instances'))
+                if Instance.exists(name))
 
 
 @click.group()
 @click.argument('instance_name')
 def instance_cli(instance_name):
     """Manage your instances."""
+    instance_name = sanitize_name(instance_name)
     global g_iname
     g_iname = instance_name
 
 
 @click.command()
+@click.argument('instance_name')
 @click.argument('version', default='latest')
-def create_instance(version):
+def create_instance(instance_name, version):
     """Create a new instance."""
-    if Instance.exists(g_iname):
+    if Instance.exists(instance_name):
         logger.error("An instance with that name already exists.")
         return
-    with Instance(g_iname) as inst:
+    with Instance(instance_name) as inst:
         inst.populate(version)
+
+
+@click.command()
+def list_instances():
+    """Show a list of instances."""
+    print("\n".join(instance_list()))
+
+
+@instance_cli.command()
+def remove():
+    if Instance.exists(g_iname):
+        Instance.remove(g_iname)
+    else:
+        logger.error("No such instance exists.")
 
 
 @instance_cli.command()
@@ -258,3 +284,4 @@ def dir():
 def register_instance_cli(picomc_cli):
     picomc_cli.add_command(instance_cli, name='instance')
     picomc_cli.add_command(create_instance)
+    picomc_cli.add_command(list_instances)
