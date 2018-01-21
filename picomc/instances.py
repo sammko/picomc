@@ -204,6 +204,7 @@ class Instance:
 
     @staticmethod
     def exists(name):
+        name = sanitize_name(name)
         return os.path.exists(get_filepath('instances', name, 'config.json'))
 
     @staticmethod
