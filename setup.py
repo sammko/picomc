@@ -7,6 +7,7 @@ setup(
     name='picomc',
     version=__version__,
     description="A very small CLI Minecraft launcher.",
+    url="https://git.sammserver.com/sammko/picomc",
     author="Samuel Čavoj",
     author_email='sammko@sammserver.com',
     license='MIT',
