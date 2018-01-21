@@ -10,11 +10,14 @@ from picomc.logging import logger
 from picomc.utils import ConfigLoader, check_directories, write_profiles_dummy
 from picomc.version import VersionManager, register_version_cli
 
+__version__ = '0.1.4'
+
 
 @click.group()
 @click.option('--debug/--no-debug', default=False)
 @click.option(
     '-r', '--root', help="Application data directory.", default=APP_ROOT)
+@click.version_option(version=__version__, prog_name="picomc")
 @click.pass_obj
 def picomc_cli(es, debug, root):
     """picomc is a minimal CLI Minecraft launcher."""
