@@ -4,6 +4,7 @@ import os
 import sys
 import urllib
 from functools import reduce
+from platform import architecture
 
 import click
 import requests
@@ -195,6 +196,8 @@ class Version:
         if 'natives' in lib:
             if platform in lib['natives']:
                 suffix = "-" + lib['natives'][platform]
+                # FIXME this is an ugly hack
+                suffix = suffix.replace('${arch}', architecture()[0][:2])
             else:
                 logger.warn(("Native library ({}) not available"
                              "for current platform ({}). Ignoring.").format(
