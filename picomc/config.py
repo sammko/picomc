@@ -16,14 +16,14 @@ def show():
 
 
 @config_cli.command()
-@click.argument('key')
-@click.argument('value')
+@click.argument("key")
+@click.argument("value")
 def set(key, value):
     gconf[key] = value
 
 
 @config_cli.command()
-@click.argument('key')
+@click.argument("key")
 def get(key):
     try:
         print(gconf[key])
@@ -32,10 +32,10 @@ def get(key):
 
 
 @config_cli.command()
-@click.argument('key')
+@click.argument("key")
 def delete(key):
     delattr(gconf, key)
 
 
 def register_config_cli(picomc_cli):
-    picomc_cli.add_command(config_cli, name='config')
+    picomc_cli.add_command(config_cli, name="config")

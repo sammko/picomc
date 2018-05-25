@@ -11,18 +11,20 @@ from picomc.utils import ConfigLoader, get_filepath, join_classpath
 
 
 class NativesExtractor:
+
     def __init__(self, instance, vobj):
         self.instance = instance
         self.vobj = vobj
-        self.ndir = get_filepath('instances', instance.name, 'natives')
+        self.ndir = get_filepath("instances", instance.name, "natives")
 
     def __enter__(self):
         os.makedirs(self.ndir, exist_ok=True)
         dedup = set()
         for fullpath in self.vobj.lib_filenames(natives=True):
             if fullpath in dedup:
-                logger.debug("Skipping duplicate natives archive: "
-                             "{}".format(fullpath))
+                logger.debug(
+                    "Skipping duplicate natives archive: " "{}".format(fullpath)
+                )
                 continue
             dedup.add(fullpath)
             logger.debug("Extracting natives archive: {}".format(fullpath))
@@ -36,7 +38,7 @@ class NativesExtractor:
 
 
 def sanitize_name(name):
-    return name.replace('..', '_').replace('/', '_')
+    return name.replace("..", "_").replace("/", "_")
 
 
 def process_arguments(arguments_dict):
@@ -50,18 +52,18 @@ def process_arguments(arguments_dict):
         #   - has_custom_resolution
         # It is not clear whether an `os` and `features` matcher may
         # be present simultaneously - assuming not.
-        if 'features' in rule:
+        if "features" in rule:
             return False
 
         osmatch = True
-        if 'os' in rule:
+        if "os" in rule:
             # The os matcher may apparently also contain a version spec
             # which is probably a regex matched against the java resported
             # os version. See 17w50a.json for an example. Ignoring it for now.
             # This may lead to older versions of Windows matchins as W10.
-            osmatch = rule['os']['name'] == platform
+            osmatch = rule["os"]["name"] == platform
         if osmatch:
-            return rule['action'] == 'allow'
+            return rule["action"] == "allow"
         return None
 
     def subproc(obj):
@@ -70,25 +72,26 @@ def process_arguments(arguments_dict):
             if isinstance(a, str):
                 args.append(a)
             else:
-                allow = 'rules' not in a
-                for rule in a['rules']:
+                allow = "rules" not in a
+                for rule in a["rules"]:
                     m = match_rule(rule)
                     if m is not None:
                         allow = m
                 if not allow:
                     continue
-                if isinstance(a['value'], list):
-                    args.extend(a['value'])
-                elif isinstance(a['value'], str):
-                    args.append(a['value'])
+                if isinstance(a["value"], list):
+                    args.extend(a["value"])
+                elif isinstance(a["value"], str):
+                    args.append(a["value"])
                 else:
                     logger.error("Unknown type of value field.")
         return args
 
-    return (subproc(arguments_dict['game']), subproc(arguments_dict['jvm']))
+    return (subproc(arguments_dict["game"]), subproc(arguments_dict["jvm"]))
 
 
 class BackupDict(dict):
+
     def __getitem__(self, i):
         try:
             return dict.__getitem__(self, i)
@@ -97,14 +100,15 @@ class BackupDict(dict):
 
 
 class InstanceConfigLoader(ConfigLoader):
+
     def __init__(self, instance_name):
-        default_config = {'version': 'latest'}
-        cfg_file = os.path.join('instances', instance_name, 'config.json')
-        ConfigLoader.__init__(
-            self, cfg_file, default_config, dict_impl=BackupDict)
+        default_config = {"version": "latest"}
+        cfg_file = os.path.join("instances", instance_name, "config.json")
+        ConfigLoader.__init__(self, cfg_file, default_config, dict_impl=BackupDict)
 
 
 class Instance:
+
     def __init__(self, name):
         self.name = sanitize_name(name)
 
@@ -119,19 +123,18 @@ class Instance:
         del self._cl
 
     def get_java(self):
-        return self.config['java.path']
+        return self.config["java.path"]
 
     def populate(self, version):
-        self.config['version'] = version
+        self.config["version"] = version
 
     def launch(self, account, version):
-        vobj = vm.get_version(version or self.config['version'])
+        vobj = vm.get_version(version or self.config["version"])
         logger.info("Launching instance {}!".format(self.name))
         logger.info("Using minecraft version: {}".format(vobj.version_name))
         vobj.prepare()
         logger.info("Using account: {}".format(account))
-        os.makedirs(
-            get_filepath('instances', self.name, 'minecraft'), exist_ok=True)
+        os.makedirs(get_filepath("instances", self.name, "minecraft"), exist_ok=True)
         with NativesExtractor(self, vobj):
             self._exec_mc(account, vobj)
 
@@ -141,37 +144,37 @@ class Instance:
         # Rewrite it.
 
         java = [self.get_java()]
-        java.append('-Xms{}'.format(self.config['java.memory.min']))
-        java.append('-Xmx{}'.format(self.config['java.memory.max']))
-        java += self.config['java.jvmargs'].split()
+        java.append("-Xms{}".format(self.config["java.memory.min"]))
+        java.append("-Xmx{}".format(self.config["java.memory.max"]))
+        java += self.config["java.jvmargs"].split()
         libs = list(v.lib_filenames())
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
 
-        version_type, user_type = ('picomc', 'mojang') if account.online else (
-            'picomc/offline', 'offline')
+        version_type, user_type = (
+            ("picomc", "mojang") if account.online else ("picomc/offline", "offline")
+        )
 
         # Make functions out of these two
-        natives = get_filepath('instances', self.name, 'natives')
-        gamedir = get_filepath('instances', self.name, 'minecraft')
+        natives = get_filepath("instances", self.name, "natives")
+        gamedir = get_filepath("instances", self.name, "minecraft")
 
         mc = v.vspec.mainClass
 
-        if hasattr(v.vspec, 'minecraftArguments'):
+        if hasattr(v.vspec, "minecraftArguments"):
             mcargs = v.vspec.minecraftArguments.split()
-            sjvmargs = [
-                "-Djava.library.path={}".format(natives), '-cp', classpath
-            ]
-        elif hasattr(v.vspec, 'arguments'):
+            sjvmargs = ["-Djava.library.path={}".format(natives), "-cp", classpath]
+        elif hasattr(v.vspec, "arguments"):
             mcargs, jvmargs = process_arguments(v.vspec.arguments)
             sjvmargs = []
             for a in jvmargs:
                 a = a.replace("${", "{")
                 a = a.format(
                     natives_directory=natives,
-                    launcher_name='picomc',
-                    launcher_version='0',  # Do something proper here. FIXME.
-                    classpath=classpath)
+                    launcher_name="picomc",
+                    launcher_version="0",  # Do something proper here. FIXME.
+                    classpath=classpath,
+                )
                 sjvmargs.append(a)
 
         account.refresh()
@@ -185,17 +188,17 @@ class Instance:
                 auth_uuid=account.uuid,
                 auth_access_token=account.access_token,
                 # Only used in old versions.
-                auth_session="token:{}:{}".format(account.access_token,
-                                                  account.uuid),
+                auth_session="token:{}:{}".format(account.access_token, account.uuid),
                 user_type=user_type,
                 user_properties={},
                 version_type=version_type,
                 version_name=v.version_name,
                 game_directory=gamedir,
-                assets_root=get_filepath('assets'),
-                assets_index_name=v.vspec.assetIndex['id'],
+                assets_root=get_filepath("assets"),
+                assets_index_name=v.vspec.assetIndex["id"],
                 # FIXME Ugly hack relying on untested behaviour:
-                game_assets=get_filepath('assets', 'virtual', 'legacy'))
+                game_assets=get_filepath("assets", "virtual", "legacy"),
+            )
             smcargs.append(a)
 
         fargs = java + sjvmargs + [mc] + smcargs
@@ -205,21 +208,23 @@ class Instance:
     @staticmethod
     def exists(name):
         name = sanitize_name(name)
-        return os.path.exists(get_filepath('instances', name, 'config.json'))
+        return os.path.exists(get_filepath("instances", name, "config.json"))
 
     @staticmethod
     def remove(name):
-        shutil.rmtree(get_filepath('instances', name))
+        shutil.rmtree(get_filepath("instances", name))
 
 
 def instance_list():
     import os
-    yield from (name for name in os.listdir(get_filepath('instances'))
-                if Instance.exists(name))
+
+    yield from (
+        name for name in os.listdir(get_filepath("instances")) if Instance.exists(name)
+    )
 
 
 @click.group()
-@click.argument('instance_name')
+@click.argument("instance_name")
 def instance_cli(instance_name):
     """Manage your instances."""
     instance_name = sanitize_name(instance_name)
@@ -228,8 +233,8 @@ def instance_cli(instance_name):
 
 
 @click.command()
-@click.argument('instance_name')
-@click.argument('version', default='latest')
+@click.argument("instance_name")
+@click.argument("version", default="latest")
 def create_instance(instance_name, version):
     """Create a new instance."""
     if Instance.exists(instance_name):
@@ -254,8 +259,8 @@ def remove():
 
 
 @instance_cli.command()
-@click.option('--account', default=None)
-@click.option('--version-override', default=None)
+@click.option("--account", default=None)
+@click.option("--version-override", default=None)
 def launch(account, version_override):
     """Launch the instance."""
     if account is None:
@@ -276,13 +281,13 @@ def launch(account, version_override):
 def dir():
     """Print root directory of instance."""
     if not g_iname:
-        print(get_filepath('instances'))
+        print(get_filepath("instances"))
     else:
         # Careful, if configurable instance dirs are added, this breaks.
-        print(get_filepath('instances', g_iname))
+        print(get_filepath("instances", g_iname))
 
 
 def register_instance_cli(picomc_cli):
-    picomc_cli.add_command(instance_cli, name='instance')
+    picomc_cli.add_command(instance_cli, name="instance")
     picomc_cli.add_command(create_instance)
     picomc_cli.add_command(list_instances)

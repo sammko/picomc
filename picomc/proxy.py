@@ -1,6 +1,7 @@
 class Proxy(object):
+
     def __init__(self, wrapped):
-        self.__dict__['__wrapped__'] = wrapped
+        self.__dict__["__wrapped__"] = wrapped
 
     @property
     def __class__(self):

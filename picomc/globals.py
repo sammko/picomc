@@ -6,13 +6,13 @@ from os.path import expanduser, join
 from picomc.proxy import Proxy
 
 APP_ROOT = {
-    'linux': lambda: expanduser('~/.local/share/picomc'),
-    'win32': lambda: join(os.getenv('APPDATA'), '.picomc'),
-    'darwin': lambda: expanduser('~/Library/Application Support/picomc')
+    "linux": lambda: expanduser("~/.local/share/picomc"),
+    "win32": lambda: join(os.getenv("APPDATA"), ".picomc"),
+    "darwin": lambda: expanduser("~/Library/Application Support/picomc"),
 }[sys.platform]()
 
 try:
-    PLATFORM_MAP = {'darwin': 'osx', 'win32': 'windows', 'linux': 'linux'}
+    PLATFORM_MAP = {"darwin": "osx", "win32": "windows", "linux": "linux"}
     platform = PLATFORM_MAP[sys.platform]
 except KeyError:
     # This is probably not neccesary, as the game is not officialy supported

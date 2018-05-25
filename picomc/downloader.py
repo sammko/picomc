@@ -11,7 +11,8 @@ def check_aria2():
         subprocess.run(
             "aria2c --version".split(),
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL)
+            stderr=subprocess.DEVNULL,
+        )
         return True
     except FileNotFoundError:
         return False
@@ -19,10 +20,11 @@ def check_aria2():
 
 def downloader_aria2(q, d):
     p = subprocess.Popen(
-        '/usr/bin/aria2c -i - -j8 --dir'.split() + [d],
+        "/usr/bin/aria2c -i - -j8 --dir".split() + [d],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
+        stderr=subprocess.PIPE,
+    )
     L = []
     for url, outs in q:
         L.append("{}\n out={}".format(url, outs[0]))
@@ -52,6 +54,7 @@ def downloader_urllib(q, d):
 
 
 class DownloadQueue:
+
     def __init__(self):
         self.q = []
 

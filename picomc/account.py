@@ -8,7 +8,7 @@ from picomc.yggdrasil import AuthenticationError, MojangYggdrasil, RefreshError
 
 
 class NAMESPACE_NULL:
-    bytes = b''
+    bytes = b""
 
 
 def generate_client_token():
@@ -17,6 +17,7 @@ def generate_client_token():
 
 
 class Account:
+
     def __init__(self, **kwargs):
         self.__dict__.update(self.DEFAULTS)
         self.__dict__.update(kwargs)
@@ -29,13 +30,13 @@ class Account:
 
     @classmethod
     def from_config(cls, name, config):
-        c = OnlineAccount if config.get('online', False) else OfflineAccount
+        c = OnlineAccount if config.get("online", False) else OfflineAccount
         return c(name=name, **config)
 
 
 class OfflineAccount(Account):
-    DEFAULTS = {'uuid': '-', 'online': False}
-    access_token = '-'
+    DEFAULTS = {"uuid": "-", "online": False}
+    access_token = "-"
 
     @classmethod
     def new(cls, name):
@@ -52,12 +53,12 @@ class OfflineAccount(Account):
 
 class OnlineAccount(Account):
     DEFAULTS = {
-        'uuid': '-',
-        'online': True,
-        'gname': '-',
-        'access_token': '-',
-        'is_authenticated': False,
-        'username': '-'
+        "uuid": "-",
+        "online": True,
+        "gname": "-",
+        "access_token": "-",
+        "is_authenticated": False,
+        "username": "-",
     }
 
     fresh = False
@@ -85,8 +86,9 @@ class OnlineAccount(Account):
                     self.fresh = True
                     return True
                 except RefreshError as e:
-                    logger.error("Failed to refresh access_token,"
-                                 " please authenticate again.")
+                    logger.error(
+                        "Failed to refresh access_token," " please authenticate again."
+                    )
                     self.is_authenticated = False
                     raise e
                 finally:
@@ -96,31 +98,33 @@ class OnlineAccount(Account):
 
     def authenticate(self, password):
         self.access_token, self.uuid, self.gname = am.yggdrasil.authenticate(
-            self.username, password)
+            self.username, password
+        )
         self.is_authenticated = True
         self.fresh = True
         am.save(self)
 
 
 class AccountError(ValueError):
+
     def __str__(self):
         return " ".join(self.args)
 
 
 DEFAULT_CONFIG = {
-    'default': None,
-    'accounts': {},
-    'client_token': generate_client_token()
+    "default": None,
+    "accounts": {},
+    "client_token": generate_client_token(),
 }
 
 
 class AccountManager:
-    cfg_file = 'accounts.json'
+    cfg_file = "accounts.json"
 
     def __enter__(self):
         self._cl = ConfigLoader(self.cfg_file, DEFAULT_CONFIG)
         self.config = self._cl.__enter__()
-        self.yggdrasil = MojangYggdrasil(self.config['client_token'])
+        self.yggdrasil = MojangYggdrasil(self.config["client_token"])
         return self
 
     def __exit__(self, ext_type, exc_value, traceback):
@@ -129,46 +133,46 @@ class AccountManager:
         del self._cl
 
     def list(self):
-        return self.config['accounts'].keys()
+        return self.config["accounts"].keys()
 
     def get(self, name):
         try:
-            acc = Account.from_config(name, self.config['accounts'][name])
-            acc.is_default = (self.config['default'] == name)
+            acc = Account.from_config(name, self.config["accounts"][name])
+            acc.is_default = self.config["default"] == name
             return acc
         except KeyError as ke:
             raise AccountError("Account does not exist:", name) from ke
 
     def exists(self, name):
-        return name in self.config['accounts']
+        return name in self.config["accounts"]
 
     def get_default(self):
-        default = self.config['default']
+        default = self.config["default"]
         if not default:
             raise AccountError("Default account not configured.")
         return self.get(default)
 
     def is_default(self, name):
-        return name == self.config['default']
+        return name == self.config["default"]
 
     def set_default(self, account):
-        self.config['default'] = account.name
+        self.config["default"] = account.name
 
     def add(self, account):
         if am.exists(account.name):
             raise AccountError("An account already exists with that name.")
-        if not self.config['default'] and not self.config['accounts']:
-            self.config['default'] = account.name
+        if not self.config["default"] and not self.config["accounts"]:
+            self.config["default"] = account.name
         self.save(account)
 
     def save(self, account):
-        self.config['accounts'][account.name] = account.to_dict()
+        self.config["accounts"][account.name] = account.to_dict()
 
     def remove(self, name):
         try:
-            if self.config['default'] == name:
-                self.config['default'] = None
-            del self.config['accounts'][name]
+            if self.config["default"] == name:
+                self.config["default"] = None
+            del self.config["accounts"][name]
         except KeyError:
             raise AccountError("Account does not exist:", name)
 
@@ -177,7 +181,7 @@ g_aname = None
 
 
 @click.group()
-@click.argument('account_name')
+@click.argument("account_name")
 def account_cli(account_name):
     """Manage your accounts."""
     global g_aname
@@ -189,15 +193,18 @@ def list_accounts():
     """List avaiable accounts."""
     alist = am.list()
     if alist:
-        print("\n".join("{}{}".format('* ' if am.is_default(u) else '  ', u)
-                        for u in alist))
+        print(
+            "\n".join(
+                "{}{}".format("* " if am.is_default(u) else "  ", u) for u in alist
+            )
+        )
     else:
         print("No accounts.")
 
 
 @click.command()
-@click.argument('account_name')
-@click.argument('mojang_username', default='')
+@click.argument("account_name")
+@click.argument("mojang_username", default="")
 def create_account(account_name, mojang_username):
     """Create an account."""
     try:
@@ -213,6 +220,7 @@ def create_account(account_name, mojang_username):
 @account_cli.command()
 def authenticate():
     import getpass
+
     try:
         a = am.get(g_aname)
         # add some output here
@@ -249,6 +257,6 @@ def setdefault():
 
 
 def register_account_cli(picomc_cli):
-    picomc_cli.add_command(account_cli, name='account')
+    picomc_cli.add_command(account_cli, name="account")
     picomc_cli.add_command(create_account)
     picomc_cli.add_command(list_accounts)

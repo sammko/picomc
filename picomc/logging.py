@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger('picomc.cli')
+logger = logging.getLogger("picomc.cli")
 
 
 def initialize(debug):
@@ -10,7 +10,7 @@ def initialize(debug):
         logger.setLevel(logging.INFO)
 
     handler = logging.StreamHandler()
-    formatter = logging.Formatter('[%(levelname)-4s] %(message)s')
+    formatter = logging.Formatter("[%(levelname)-4s] %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
