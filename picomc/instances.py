@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import zipfile
+from platform import architecture
 
 import click
 from picomc.account import AccountError
@@ -57,11 +58,20 @@ def process_arguments(arguments_dict):
 
         osmatch = True
         if "os" in rule:
+            # FIXME:
             # The os matcher may apparently also contain a version spec
             # which is probably a regex matched against the java resported
             # os version. See 17w50a.json for an example. Ignoring it for now.
             # This may lead to older versions of Windows matchins as W10.
-            osmatch = rule["os"]["name"] == platform
+            # The "name" key is apparently also not required (1.13-pre4.json)
+            # and an "arch" rule may be present instead. Possible values are
+            # currently unknown.
+            if "name" in rule["os"]:
+                osmatch = osmatch and rule["os"]["name"] == platform
+            if "arch" in rule["os"]:
+                logger.warn("Matching arch rule, this may not work.")
+                arch = {"32": "x86"}.get(architecture()[0][:2], "?")
+                osmatch = osmatch and rule["os"]["arch"] == arch
         if osmatch:
             return rule["action"] == "allow"
         return None
