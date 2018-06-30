@@ -10,7 +10,7 @@ from picomc.logging import logger
 from picomc.utils import ConfigLoader, check_directories, write_profiles_dummy
 from picomc.version import VersionManager, register_version_cli
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 
 @click.group()
