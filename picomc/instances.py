@@ -97,7 +97,7 @@ def process_arguments(arguments_dict):
                     logger.error("Unknown type of value field.")
         return args
 
-    return (subproc(arguments_dict["game"]), subproc(arguments_dict["jvm"]))
+    return (subproc(arguments_dict["game"]), subproc(arguments_dict.get("jvm")))
 
 
 class BackupDict(dict):
@@ -178,7 +178,7 @@ class Instance:
             mcargs, jvmargs = process_arguments(v.vspec.arguments)
             sjvmargs = []
             for a in jvmargs:
-                a = a.replace("${", "{")
+                a = a.replace("${", "{") # oof FIXME
                 a = a.format(
                     natives_directory=natives,
                     launcher_name="picomc",
@@ -191,7 +191,7 @@ class Instance:
 
         smcargs = []
         for a in mcargs:
-            # This should be done differently.
+            # This should be done differently. FIXME
             a = a.replace("${", "{")
             a = a.format(
                 auth_player_name=account.gname,

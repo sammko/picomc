@@ -44,7 +44,6 @@ MODE_REDUCE = 1
 
 
 class CachedVspecAttr(object):
-
     def __init__(self, attr, mode=MODE_OVERRIDE, reduce_func=None, default=None):
         self.attr = attr
         self.mode = mode
@@ -75,7 +74,7 @@ class CachedVspecAttr(object):
                 except TypeError as e:
                     raise AttributeError() from e
         except AttributeError as e:
-            if self.default:
+            if self.default is not None:
                 r = self.default(vspec.vobj)
         finally:
             try:
@@ -85,8 +84,17 @@ class CachedVspecAttr(object):
                 raise AttributeError() from e
 
 
-class VersionSpec:
+def argumentadd(d1, d2):
+    d = d1.copy()
+    for k, v in d2.items():
+        if k in d:
+            d[k] += v
+        else:
+            d[k] = v
+    return d
 
+
+class VersionSpec:
     def __init__(self, vobj):
         self.vobj = vobj
         self.chain = self._resolve_chain()
@@ -101,12 +109,12 @@ class VersionSpec:
         return chain
 
     minecraftArguments = CachedVspecAttr("minecraftArguments")
-    arguments = CachedVspecAttr("arguments")
+    arguments = CachedVspecAttr("arguments", mode=MODE_REDUCE, reduce_func=argumentadd)
     mainClass = CachedVspecAttr("mainClass")
     assetIndex = CachedVspecAttr("assetIndex")
     libraries = CachedVspecAttr("libraries", mode=MODE_REDUCE, reduce_func=operator.add)
     jar = CachedVspecAttr("jar", default=lambda vobj: vobj.version_name)
-    downloads = CachedVspecAttr("downloads")
+    downloads = CachedVspecAttr("downloads", default=lambda vobj: {})
 
 
 class Version:
@@ -240,7 +248,15 @@ class Version:
     def download_jarfile(self, force=False):
         """Checks existence and hash of cached jar. Downloads a new one
         if either condition is violated."""
-        dlspec = self.vspec.downloads["client"]
+        logger.debug("Attempting to use jarfile: {}".format(self.jarfile))
+        dlspec = self.vspec.downloads.get("client", None)
+        if not dlspec:
+            logger.debug("jarfile not in dlspec, skipping hash check.")
+            if not os.path.exists(self.jarfile):
+                logger.error("Jarfile does not exist and can not be downloaded.")
+                raise RuntimeError()
+            return
+
         logger.debug("Checking jarfile.")
         if (
             force

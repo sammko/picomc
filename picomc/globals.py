@@ -25,7 +25,6 @@ def get_default_java():
     # FIXME. This is just a placeholder.
     return "java"
 
-
 class Ptr:
     _a = None
 
