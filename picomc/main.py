@@ -1,10 +1,11 @@
 from contextlib import ExitStack
 
 import click
+
 import picomc.logging
 from picomc.account import AccountManager, register_account_cli
 from picomc.config import register_config_cli
-from picomc.globals import APP_ROOT, _ctx_ptr, ctx
+from picomc.globals import _ctx_ptr, ctx, get_app_root, set_app_root
 from picomc.instances import register_instance_cli
 from picomc.logging import logger
 from picomc.utils import ConfigLoader, check_directories, write_profiles_dummy
@@ -15,18 +16,20 @@ __version__ = "0.1.6"
 
 @click.group()
 @click.option("--debug/--no-debug", default=False)
-@click.option("-r", "--root", help="Application data directory.", default=APP_ROOT)
+@click.option(
+    "-r", "--root", help="Application data directory.", default=get_app_root()
+)
 @click.version_option(version=__version__, prog_name="picomc")
 @click.pass_obj
 def picomc_cli(es, debug, root):
     """picomc is a minimal CLI Minecraft launcher."""
     picomc.logging.initialize(debug)
-    picomc.globals.APP_ROOT = root
+    picomc.globals.set_app_root(root)
     check_directories()
 
     write_profiles_dummy()
 
-    logger.debug("Using application directory: {}".format(picomc.globals.APP_ROOT))
+    logger.debug("Using application directory: {}".format(get_app_root()))
 
     am = es.enter_context(AccountManager())
     ctx.am = am
@@ -42,7 +45,6 @@ def picomc_cli(es, debug, root):
 
 
 def main():
-
     class Context:
         pass
 

@@ -3,12 +3,11 @@ import json
 import os
 from functools import partial
 
-from picomc.globals import APP_ROOT
+from picomc.globals import get_app_root
 from picomc.logging import logger
 
 
 class cached_property(object):
-
     def __init__(self, fn):
         self.fn = fn
 
@@ -21,7 +20,7 @@ class cached_property(object):
 
 
 def get_filepath(*f):
-    return os.path.join(APP_ROOT, *f)
+    return os.path.join(get_app_root(), *f)
 
 
 def join_classpath(*cp):
@@ -41,7 +40,7 @@ def check_directories():
         "libraries",
     ]
     for d in dirs:
-        path = os.path.join(APP_ROOT, *d.split("/"))
+        path = get_filepath(*d.split("/"))
         try:
             os.makedirs(path)
             logger.debug("Created dir: {}".format(path))
@@ -65,9 +64,8 @@ def file_sha1(filename):
 
 
 class ConfigLoader:
-
     def __init__(self, config_file, defaults={}, dict_impl=dict):
-        self.filename = os.path.join(APP_ROOT, config_file)
+        self.filename = get_filepath(config_file)
         self.dict_impl = dict_impl
         self.data = dict_impl(defaults)
 

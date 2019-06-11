@@ -21,9 +21,19 @@ except KeyError:
     platform = sys.platform
 
 
+def get_app_root():
+    return APP_ROOT
+
+
+def set_app_root(root):
+    global APP_ROOT
+    APP_ROOT = os.path.abspath(root)
+
+
 def get_default_java():
     # FIXME. This is just a placeholder.
     return "java"
+
 
 class Ptr:
     _a = None
