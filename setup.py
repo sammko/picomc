@@ -1,5 +1,6 @@
-from picomc import __version__
 from setuptools import find_packages, setup
+
+from picomc import __version__
 
 setup(
     name="picomc",
@@ -15,7 +16,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     packages=find_packages(),
-    install_requires=["click", "requests"],
+    install_requires=["click", "requests", "urllib3", "certifi"],
     python_requires=">=3",
     entry_points={"console_scripts": ["picomc = picomc:main"]},
 )

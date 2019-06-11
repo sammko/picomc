@@ -1,7 +1,10 @@
 import os
 import shutil
 import subprocess
-import urllib
+from concurrent.futures import ThreadPoolExecutor
+
+import certifi
+import urllib3
 
 from picomc.logging import logger
 
@@ -41,20 +44,30 @@ def downloader_aria2(q, d):
                 shutil.copy(src, dst)
 
 
-def downloader_urllib(q, d):
-    # Dumb and slow.
-    for url, outs in q:
+def downloader_urllib3(q, d, workers=8):
+    http_pool = urllib3.PoolManager(cert_reqs="CERT_REQUIRED", ca_certs=certifi.where())
+    total = len(q)
+
+    def dl(i, url, outs):
         aouts = list(os.path.join(d, o) for o in outs)
         for o in aouts:
             os.makedirs(os.path.dirname(o), exist_ok=True)
         pout, *eouts = aouts
-        urllib.request.urlretrieve(url, pout)
+        logger.debug("Downloading [{}/{}]: {}".format(i, total, url))
+        resp = http_pool.request("GET", url, preload_content=False)
+        with open(pout, "wb") as poutfd:
+            shutil.copyfileobj(resp, poutfd)
+        resp.release_conn()
         for o in eouts:
             shutil.copy(pout, o)
 
+    # XXX: I'm not sure how much of a good idea this is on slower connections.
+    with ThreadPoolExecutor(max_workers=workers) as tpe:
+        for i, (url, outs) in enumerate(q, start=1):
+            tpe.submit(dl, i, url, outs)
+
 
 class DownloadQueue:
-
     def __init__(self):
         self.q = []
 
@@ -64,10 +77,10 @@ class DownloadQueue:
     def download(self, d):
         if not self.q:
             return
-        if check_aria2():
+        if False and check_aria2():  # XXX: Disabled
             logger.info("Using aria2 downloader.")
             downloader = downloader_aria2
         else:
-            logger.info("Using urllib downloader.")
-            downloader = downloader_urllib
+            logger.info("Using parallel urllib3 downloader.")
+            downloader = downloader_urllib3
         downloader(self.q, d)

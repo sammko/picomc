@@ -8,6 +8,7 @@ from platform import architecture
 
 import click
 import requests
+
 from picomc.downloader import DownloadQueue
 from picomc.globals import platform, vm
 from picomc.logging import logger
@@ -308,6 +309,7 @@ class Version:
                 self.ASSETS_URL, "{}/{}".format(digest[0:2], digest)
             )
             outs = []
+            # FIXME: probably should be checking hashes here...
             if force or not os.path.exists(fullfname):
                 outs.append(fname)
             if self.raw_asset_index.get("virtual", False):
