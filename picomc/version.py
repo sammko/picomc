@@ -291,11 +291,10 @@ class Version:
             else:
                 rev[h] = [name]
 
-        logger.info(
-            "Downloading/checking {} assets. This may take a while.".format(
-                len(rev.keys())
-            )
-        )
+        logger.info("Checking {} assets.".format(len(rev.keys())))
+
+        is_virtual = self.raw_asset_index.get("virtual", False)
+
 
         q = DownloadQueue()
         for digest, names in rev.items():
@@ -312,7 +311,7 @@ class Version:
             # FIXME: probably should be checking hashes here...
             if force or not os.path.exists(fullfname):
                 outs.append(fname)
-            if self.raw_asset_index.get("virtual", False):
+            if is_virtual:
                 for vfname in vfnames:
                     if force or not os.path.exists(
                         get_filepath("assets", *vfname.split("/"))
@@ -320,6 +319,8 @@ class Version:
                         outs.append(vfname)
             if outs:
                 q.add(url, *outs)
+
+        logger.info("Downloading {} assets. This could take a while.".format(len(q)))
 
         q.download(get_filepath("assets"))
 

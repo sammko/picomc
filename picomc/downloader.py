@@ -5,7 +5,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import certifi
 import urllib3
+from tqdm import tqdm
 
+from picomc.globals import Global
 from picomc.logging import logger
 
 
@@ -61,10 +63,19 @@ def downloader_urllib3(q, d, workers=8):
         for o in eouts:
             shutil.copy(pout, o)
 
-    # XXX: I'm not sure how much of a good idea this is on slower connections.
-    with ThreadPoolExecutor(max_workers=workers) as tpe:
+    disable_progressbar = Global.debug
+
+    # XXX: I'm not sure how much of a good idea multithreaded downloading is on slower connections.
+    with tqdm(total=total, disable=disable_progressbar) as tq, ThreadPoolExecutor(
+        max_workers=workers
+    ) as tpe:
+
+        def done(fut):
+            tq.update()
+
         for i, (url, outs) in enumerate(q, start=1):
-            tpe.submit(dl, i, url, outs)
+            fut = tpe.submit(dl, i, url, outs)
+            fut.add_done_callback(done)
 
 
 class DownloadQueue:
@@ -73,6 +84,9 @@ class DownloadQueue:
 
     def add(self, url, *filename):
         self.q.append((url, filename))
+
+    def __len__(self):
+        return len(self.q)
 
     def download(self, d):
         if not self.q:

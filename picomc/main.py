@@ -5,7 +5,7 @@ import click
 import picomc.logging
 from picomc.account import AccountManager, register_account_cli
 from picomc.config import register_config_cli
-from picomc.globals import _ctx_ptr, ctx, get_app_root, set_app_root
+from picomc.globals import Global, _ctx_ptr, ctx, get_app_root, set_app_root
 from picomc.instances import register_instance_cli
 from picomc.logging import logger
 from picomc.utils import ConfigLoader, check_directories, write_profiles_dummy
@@ -24,6 +24,7 @@ __version__ = "0.1.7"
 def picomc_cli(es, debug, root):
     """picomc is a minimal CLI Minecraft launcher."""
     picomc.logging.initialize(debug)
+    Global.debug = debug
     picomc.globals.set_app_root(root)
     check_directories()
 

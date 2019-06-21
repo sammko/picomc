@@ -26,8 +26,14 @@ def get_app_root():
 
 
 def set_app_root(root):
+    # FIXME. I don't like this global variable solution. Temporary (tm).
     global APP_ROOT
     APP_ROOT = os.path.abspath(root)
+
+
+# FIXME. This is not very good design
+class Global:
+    debug = False
 
 
 def get_default_java():
