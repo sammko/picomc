@@ -5,6 +5,7 @@ import zipfile
 from platform import architecture
 
 import click
+
 from picomc.account import AccountError
 from picomc.globals import am, gconf, platform, vm
 from picomc.logging import logger
@@ -12,7 +13,6 @@ from picomc.utils import ConfigLoader, get_filepath, join_classpath
 
 
 class NativesExtractor:
-
     def __init__(self, instance, vobj):
         self.instance = instance
         self.vobj = vobj
@@ -101,7 +101,6 @@ def process_arguments(arguments_dict):
 
 
 class BackupDict(dict):
-
     def __getitem__(self, i):
         try:
             return dict.__getitem__(self, i)
@@ -110,7 +109,6 @@ class BackupDict(dict):
 
 
 class InstanceConfigLoader(ConfigLoader):
-
     def __init__(self, instance_name):
         default_config = {"version": "latest"}
         cfg_file = os.path.join("instances", instance_name, "config.json")
@@ -118,7 +116,6 @@ class InstanceConfigLoader(ConfigLoader):
 
 
 class Instance:
-
     def __init__(self, name):
         self.name = sanitize_name(name)
 
@@ -178,7 +175,7 @@ class Instance:
             mcargs, jvmargs = process_arguments(v.vspec.arguments)
             sjvmargs = []
             for a in jvmargs:
-                a = a.replace("${", "{") # oof FIXME
+                a = a.replace("${", "{")  # oof FIXME
                 a = a.format(
                     natives_directory=natives,
                     launcher_name="picomc",
