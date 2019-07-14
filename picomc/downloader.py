@@ -11,41 +11,6 @@ from picomc.globals import Global
 from picomc.logging import logger
 
 
-def check_aria2():
-    try:
-        subprocess.run(
-            "aria2c --version".split(),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        return True
-    except FileNotFoundError:
-        return False
-
-
-def downloader_aria2(q, d):
-    p = subprocess.Popen(
-        "/usr/bin/aria2c -i - -j8 --dir".split() + [d],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    L = []
-    for url, outs in q:
-        L.append("{}\n out={}".format(url, outs[0]))
-    out, err = p.communicate("\n".join(L).encode())
-    if p.returncode:
-        print(out.decode(), err.decode())
-        raise RuntimeError("Failed to download files.")
-    else:
-        for url, outs in q:
-            src = os.path.join(d, outs[0])
-            for o in outs[1:]:
-                dst = os.path.join(d, o)
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                shutil.copy(src, dst)
-
-
 def downloader_urllib3(q, d, workers=8):
     http_pool = urllib3.PoolManager(cert_reqs="CERT_REQUIRED", ca_certs=certifi.where())
     total = len(q)
@@ -91,9 +56,6 @@ class DownloadQueue:
     def download(self, d):
         if not self.q:
             return
-        if False and check_aria2():  # XXX: Disabled
-            logger.info("Using aria2 downloader.")
-            downloader = downloader_aria2
         else:
             logger.info("Using parallel urllib3 downloader.")
             downloader = downloader_urllib3
