@@ -30,6 +30,7 @@ class VersionType:
     def match(self, s):
         return bool(self.MAP[s] & self._a)
 
+    @staticmethod
     def create(release, snapshot, alpha, beta):
         a = release | (2 * snapshot) | (4 * alpha) | (8 * beta)
         return VersionType(a)
