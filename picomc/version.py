@@ -11,7 +11,6 @@ from platform import architecture
 
 import click
 import requests
-
 from picomc.downloader import DownloadQueue
 from picomc.globals import platform, vm
 from picomc.logging import logger
@@ -435,6 +434,30 @@ def list_versions(release, snapshot, alpha, beta, local, all):
 @version_cli.command()
 def prepare():
     g_vobj.prepare()
+
+
+@version_cli.command()
+@click.argument("which", default="client")
+@click.option("--output", default=None)
+def jar(which, output):
+    """Download the file and save."""
+    dlspec = g_vobj.vspec.downloads.get(which, None)
+    if not dlspec:
+        logger.error("No such dlspec exists for version {}".format(g_vobj.version_name))
+        sys.exit(1)
+    url = dlspec["url"]
+    sha1 = dlspec["sha1"]
+    ext = posixpath.basename(urllib.parse.urlsplit(url).path).split(".")[-1]
+    if output is None:
+        output = "{}_{}.{}".format(g_vobj.version_name, which, ext)
+    if os.path.exists(output):
+        logger.error("Refusing to overwrite {}".format(output))
+        sys.exit(1)
+    logger.info("Hash should be {}".format(sha1))
+    logger.info("Downloading the {} file and saving to {}".format(which, output))
+    urllib.request.urlretrieve(dlspec["url"], output)
+    if file_sha1(output) != sha1:
+        logger.warn("Hash of downloaded file does not match")
 
 
 def register_version_cli(root_cli):
