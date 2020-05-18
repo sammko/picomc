@@ -1,7 +1,6 @@
 from contextlib import ExitStack
 
 import click
-
 import picomc.logging
 from picomc.account import AccountManager, register_account_cli
 from picomc.config import register_config_cli
@@ -11,7 +10,7 @@ from picomc.logging import logger
 from picomc.utils import ConfigLoader, check_directories, write_profiles_dummy
 from picomc.version import VersionManager, register_version_cli
 
-__version__ = "0.1.9"
+__version__ = "0.2.0"
 
 
 @click.group()
