@@ -1,8 +1,11 @@
 import json
 import operator
 import os
+import posixpath
+import re
 import sys
-import urllib
+import urllib.parse
+import urllib.request
 from functools import reduce
 from platform import architecture
 
@@ -136,32 +139,34 @@ class Version:
         fpath = get_filepath(
             "versions", self.version_name, "{}.json".format(self.version_name)
         )
-        if os.path.exists(fpath):
+        ver = vm.get_manifest_version(self.version_name)
+        if not ver:
+            raise ValueError("Specified version not available.")
+        url = ver["url"]
+        # Pull the hash out of the url. This is prone to breakage, maybe
+        # just try to download the vspec and don't care about whether it
+        # is up to date or not.
+        url_split = urllib.parse.urlsplit(url)
+        sha1 = posixpath.basename(posixpath.dirname(url_split.path))
+        if os.path.exists(fpath) and file_sha1(fpath) == sha1:
+            logger.debug("Using cached vspec files, hash matches manifest")
             with open(fpath) as fp:
                 return json.load(fp)
-        else:
-            url = None
-            for v in vm.manifest["versions"]:
-                if v["id"] == self.version_name:
-                    url = v["url"]
-                    break
-            if not url:
-                raise ValueError("Specified version not avaiable.")
-            try:
-                j = requests.get(url).json()
-                for l in j["libraries"]:
-                    try:
-                        del l["downloads"]
-                    except KeyError:
-                        pass
-                dirpath = get_filepath("versions", self.version_name)
-                os.makedirs(dirpath, exist_ok=True)
-                with open(fpath, "w") as fp:
-                    json.dump(j, fp, indent=4, sort_keys=True)
-                return j
-            except requests.ConnectionError:
-                logger.error("Failed to retrieve version json file.")
-                sys.exit(1)
+
+        try:
+            logger.debug("Downloading vspec file")
+            raw = requests.get(url).content
+            dirpath = os.path.dirname(fpath)
+            os.makedirs(dirpath, exist_ok=True)
+            with open(fpath, "wb") as fp:
+                fp.write(raw)
+            j = json.loads(raw)
+            return j
+        except requests.ConnectionError:
+            logger.error(
+                "Failed to retrieve version json file. Check your internet connection."
+            )
+            sys.exit(1)
 
     @cached_property
     def vspec(self):
@@ -171,19 +176,21 @@ class Version:
     def raw_asset_index(self):
         iid = self.vspec.assetIndex["id"]
         url = self.vspec.assetIndex["url"]
+        sha1 = self.vspec.assetIndex["sha1"]
         fpath = get_filepath("assets", "indexes", "{}.json".format(iid))
-        if os.path.exists(fpath):
+        if os.path.exists(fpath) and file_sha1(fpath) == sha1:
+            logger.debug("Using cached asset index, hash matches vspec")
             with open(fpath) as fp:
                 return json.load(fp)
-        else:
-            try:
-                j = requests.get(url).json()
-                with open(fpath, "w") as fp:
-                    json.dump(j, fp)
-                return j
-            except requests.ConnectionError:
-                logger.error("Failed to retrieve assets index.")
-                sys.exit(1)
+        try:
+            logger.debug("Downloading new asset index")
+            raw = requests.get(url).content
+            with open(fpath, "wb") as fp:
+                fp.write(raw)
+            return json.loads(raw)
+        except requests.ConnectionError:
+            logger.error("Failed to retrieve asset index.")
+            sys.exit(1)
 
     def _libraries(self, natives_only=False):
         # The rule matching in this function could be cached,
@@ -205,6 +212,11 @@ class Version:
 
     @staticmethod
     def _resolve_library(lib):
+        # TODO
+        # For some reason I don't remember, we are constructing the paths
+        # to library downloads manually instead of using the url and hash
+        # provided in the vspec. This should probably be reworked and hashes
+        # should be checked instead of just the filenames
         suffix = ""
         if "natives" in lib:
             if platform in lib["natives"]:
@@ -224,6 +236,7 @@ class Version:
         p, n, v, *va = fullname.split(":")
         v2 = "-".join([v] + va)
 
+        # TODO this is fugly
         class LibPaths:
             package = p.replace(".", "/")
             name = n
@@ -296,7 +309,6 @@ class Version:
 
         is_virtual = self.raw_asset_index.get("virtual", False)
 
-
         q = DownloadQueue()
         for digest, names in rev.items():
             # This is a mess, should be rewritten. FIXME
@@ -366,6 +378,11 @@ class VersionManager:
             except FileNotFoundError:
                 logger.warn("Cached version manifest not available.")
                 raise RuntimeError("Failed to retrieve version manifest.")
+
+    def get_manifest_version(self, version_name):
+        for ver in self.manifest["versions"]:
+            if ver["id"] == version_name:
+                return ver
 
     def version_list(self, vtype=VersionType.RELEASE, local=False):
         r = [v["id"] for v in self.manifest["versions"] if vtype.match(v["type"])]
