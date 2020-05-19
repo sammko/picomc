@@ -5,10 +5,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import certifi
 import urllib3
-from tqdm import tqdm
-
-from picomc.globals import Global
+from picomc.env import Env
 from picomc.logging import logger
+from tqdm import tqdm
 
 
 def downloader_urllib3(q, d, workers=8):
@@ -28,7 +27,7 @@ def downloader_urllib3(q, d, workers=8):
         for o in eouts:
             shutil.copy(pout, o)
 
-    disable_progressbar = Global.debug
+    disable_progressbar = Env.debug
 
     # XXX: I'm not sure how much of a good idea multithreaded downloading is on slower connections.
     with tqdm(total=total, disable=disable_progressbar) as tq, ThreadPoolExecutor(

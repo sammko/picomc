@@ -1,7 +1,7 @@
 import uuid
 
 import click
-from picomc.globals import am
+from picomc.env import Env
 from picomc.logging import logger
 from picomc.utils import ConfigLoader
 from picomc.yggdrasil import AuthenticationError, MojangYggdrasil, RefreshError
@@ -17,7 +17,6 @@ def generate_client_token():
 
 
 class Account:
-
     def __init__(self, **kwargs):
         self.__dict__.update(self.DEFAULTS)
         self.__dict__.update(kwargs)
@@ -68,7 +67,7 @@ class OnlineAccount(Account):
         return cls(name=name, username=username)
 
     def validate(self):
-        r = am.yggdrasil.validate(self.access_token)
+        r = Env.am.yggdrasil.validate(self.access_token)
         if r:
             self.fresh = True
         return r
@@ -81,7 +80,7 @@ class OnlineAccount(Account):
                 return
             else:
                 try:
-                    refresh = am.yggdrasil.refresh(self.access_token)
+                    refresh = Env.am.yggdrasil.refresh(self.access_token)
                     self.access_token, self.uuid, self.gname = refresh
                     self.fresh = True
                     return True
@@ -92,21 +91,20 @@ class OnlineAccount(Account):
                     self.is_authenticated = False
                     raise e
                 finally:
-                    am.save(self)
+                    Env.am.save(self)
         else:
             raise AccountError("Not authenticated.")
 
     def authenticate(self, password):
-        self.access_token, self.uuid, self.gname = am.yggdrasil.authenticate(
+        self.access_token, self.uuid, self.gname = Env.am.yggdrasil.authenticate(
             self.username, password
         )
         self.is_authenticated = True
         self.fresh = True
-        am.save(self)
+        Env.am.save(self)
 
 
 class AccountError(ValueError):
-
     def __str__(self):
         return " ".join(self.args)
 
@@ -159,7 +157,7 @@ class AccountManager:
         self.config["default"] = account.name
 
     def add(self, account):
-        if am.exists(account.name):
+        if Env.am.exists(account.name):
             raise AccountError("An account already exists with that name.")
         if not self.config["default"] and not self.config["accounts"]:
             self.config["default"] = account.name
@@ -191,11 +189,11 @@ def account_cli(account_name):
 @click.command()
 def list_accounts():
     """List avaiable accounts."""
-    alist = am.list()
+    alist = Env.am.list()
     if alist:
         print(
             "\n".join(
-                "{}{}".format("* " if am.is_default(u) else "  ", u) for u in alist
+                "{}{}".format("* " if Env.am.is_default(u) else "  ", u) for u in alist
             )
         )
     else:
@@ -212,7 +210,7 @@ def create_account(account_name, mojang_username):
             acc = OnlineAccount.new(account_name, mojang_username)
         else:
             acc = OfflineAccount.new(account_name)
-        am.add(acc)
+        Env.am.add(acc)
     except AccountError as e:
         print(e)
 
@@ -222,7 +220,7 @@ def authenticate():
     import getpass
 
     try:
-        a = am.get(g_aname)
+        a = Env.am.get(g_aname)
         # add some output here
         p = getpass.getpass("Password: ")
         a.authenticate(p)
@@ -233,7 +231,7 @@ def authenticate():
 @account_cli.command()
 def refresh():
     try:
-        a = am.get(g_aname)
+        a = Env.am.get(g_aname)
         a.refresh()
     except (AccountError, RefreshError) as e:
         print(e)
@@ -242,7 +240,7 @@ def refresh():
 @account_cli.command()
 def remove():
     try:
-        am.remove(g_aname)
+        Env.am.remove(g_aname)
     except AccountError as e:
         print(e)
 
@@ -250,8 +248,8 @@ def remove():
 @account_cli.command()
 def setdefault():
     try:
-        default = am.get(g_aname)
-        am.set_default(default)
+        default = Env.am.get(g_aname)
+        Env.am.set_default(default)
     except AccountError as e:
         print(e)
 

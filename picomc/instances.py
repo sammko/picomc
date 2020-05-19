@@ -5,11 +5,10 @@ import zipfile
 from platform import architecture
 
 import click
-
 from picomc.account import AccountError
-from picomc.globals import am, gconf, platform, vm
+from picomc.env import Env, get_filepath
 from picomc.logging import logger
-from picomc.utils import ConfigLoader, get_filepath, join_classpath
+from picomc.utils import ConfigLoader, join_classpath
 
 
 class NativesExtractor:
@@ -67,7 +66,7 @@ def process_arguments(arguments_dict):
             # and an "arch" rule may be present instead. Possible values are
             # currently unknown.
             if "name" in rule["os"]:
-                osmatch = osmatch and rule["os"]["name"] == platform
+                osmatch = osmatch and rule["os"]["name"] == Env.platform
             if "arch" in rule["os"]:
                 logger.warn("Matching arch rule, this may not work.")
                 arch = {"32": "x86"}.get(architecture()[0][:2], "?")
@@ -105,7 +104,7 @@ class BackupDict(dict):
         try:
             return dict.__getitem__(self, i)
         except KeyError:
-            return gconf[i]
+            return Env.gconf[i]
 
 
 class InstanceConfigLoader(ConfigLoader):
@@ -136,7 +135,7 @@ class Instance:
         self.config["version"] = version
 
     def launch(self, account, version):
-        vobj = vm.get_version(version or self.config["version"])
+        vobj = Env.vm.get_version(version or self.config["version"])
         logger.info("Launching instance {}!".format(self.name))
         logger.info("Using minecraft version: {}".format(vobj.version_name))
         vobj.prepare()
@@ -230,6 +229,9 @@ def instance_list():
     )
 
 
+g_iname = ""
+
+
 @click.group()
 @click.argument("instance_name")
 def instance_cli(instance_name):
@@ -271,9 +273,9 @@ def remove():
 def launch(account, version_override):
     """Launch the instance."""
     if account is None:
-        account = am.get_default()
+        account = Env.am.get_default()
     else:
-        account = am.get(account)
+        account = Env.am.get(account)
     if not Instance.exists(g_iname):
         logger.error("No such instance exists.")
         return

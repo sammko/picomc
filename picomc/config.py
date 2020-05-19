@@ -1,5 +1,5 @@
 import click
-from picomc.globals import gconf
+from picomc.env import Env
 
 
 @click.group()
@@ -11,7 +11,7 @@ def config_cli():
 @config_cli.command()
 def show():
     """Print the current config."""
-    for k, v in gconf.items():
+    for k, v in Env.gconf.items():
         print("{}: {}".format(k, v))
 
 
@@ -19,14 +19,14 @@ def show():
 @click.argument("key")
 @click.argument("value")
 def set(key, value):
-    gconf[key] = value
+    Env.gconf[key] = value
 
 
 @config_cli.command()
 @click.argument("key")
 def get(key):
     try:
-        print(gconf[key])
+        print(Env.gconf[key])
     except KeyError:
         print("No such attribute.")
 
@@ -34,7 +34,7 @@ def get(key):
 @config_cli.command()
 @click.argument("key")
 def delete(key):
-    delattr(gconf, key)
+    delattr(Env.gconf, key)
 
 
 def register_config_cli(picomc_cli):

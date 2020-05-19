@@ -12,9 +12,9 @@ from platform import architecture
 import click
 import requests
 from picomc.downloader import DownloadQueue
-from picomc.globals import platform, vm
+from picomc.env import Env, get_filepath
 from picomc.logging import logger
-from picomc.utils import cached_property, die, file_sha1, get_filepath
+from picomc.utils import cached_property, die, file_sha1
 
 
 class VersionType:
@@ -138,7 +138,7 @@ class Version:
         fpath = get_filepath(
             "versions", self.version_name, "{}.json".format(self.version_name)
         )
-        ver = vm.get_manifest_version(self.version_name)
+        ver = Env.vm.get_manifest_version(self.version_name)
         if not ver:
             if os.path.exists(fpath):
                 logger.debug("Found custom vspec ({})".format(self.version_name))
@@ -206,7 +206,7 @@ class Version:
             for rule in rules:
                 osmatch = True
                 if "os" in rule:
-                    osmatch = rule["os"]["name"] == platform
+                    osmatch = rule["os"]["name"] == Env.platform
                 if osmatch:
                     allow = rule["action"] == "allow"
             if not allow:
@@ -224,8 +224,8 @@ class Version:
         # should be checked instead of just the filenames
         suffix = ""
         if "natives" in lib:
-            if platform in lib["natives"]:
-                suffix = "-" + lib["natives"][platform]
+            if Env.platform in lib["natives"]:
+                suffix = "-" + lib["natives"][Env.platform]
                 # FIXME this is an ugly hack
                 suffix = suffix.replace("${arch}", architecture()[0][:2])
             else:
@@ -233,7 +233,7 @@ class Version:
                     (
                         "Native library ({}) not available"
                         "for current platform ({}). Ignoring."
-                    ).format(lib["name"], platform)
+                    ).format(lib["name"], Env.platform)
                 )
                 return None
         fullname = lib["name"]
@@ -413,7 +413,7 @@ g_vobj = None
 def version_cli(version_name):
     """Operate on local Minecraft versions."""
     global g_vobj
-    g_vobj = vm.get_version(version_name)
+    g_vobj = Env.vm.get_version(version_name)
 
 
 @click.command()
@@ -434,7 +434,7 @@ def list_versions(release, snapshot, alpha, beta, local, all):
         )
         local = True
     T = VersionType.create(release, snapshot, alpha, beta)
-    print("\n".join(vm.version_list(vtype=T, local=local)))
+    print("\n".join(Env.vm.version_list(vtype=T, local=local)))
 
 
 @version_cli.command()

@@ -3,8 +3,10 @@ import json
 import os
 import sys
 from functools import partial
+from os.path import expanduser, join
+from types import SimpleNamespace
 
-from picomc.globals import get_app_root
+from picomc.env import get_filepath
 from picomc.logging import logger
 
 
@@ -20,33 +22,8 @@ class cached_property(object):
         return r
 
 
-def get_filepath(*f):
-    return os.path.join(get_app_root(), *f)
-
-
 def join_classpath(*cp):
     return os.pathsep.join(cp)
-
-
-def check_directories():
-    """Create directory structure for the application."""
-    dirs = [
-        "",
-        "instances",
-        "versions",
-        "assets",
-        "assets/indexes",
-        "assets/objects",
-        "assets/virtual",
-        "libraries",
-    ]
-    for d in dirs:
-        path = get_filepath(*d.split("/"))
-        try:
-            os.makedirs(path)
-            logger.debug("Created dir: {}".format(path))
-        except FileExistsError:
-            pass
 
 
 def write_profiles_dummy():
