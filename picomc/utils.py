@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import sys
 from functools import partial
 
 from picomc.globals import get_app_root
@@ -61,6 +62,11 @@ def file_sha1(filename):
         for b in iter(partial(f.read, 128 * 1024), b""):
             h.update(b)
     return h.hexdigest()
+
+
+def die(mesg, code=1):
+    logger.error(mesg)
+    sys.exit(code)
 
 
 class ConfigLoader:

@@ -14,7 +14,7 @@ import requests
 from picomc.downloader import DownloadQueue
 from picomc.globals import platform, vm
 from picomc.logging import logger
-from picomc.utils import cached_property, file_sha1, get_filepath
+from picomc.utils import cached_property, die, file_sha1, get_filepath
 
 
 class VersionType:
@@ -140,15 +140,25 @@ class Version:
         )
         ver = vm.get_manifest_version(self.version_name)
         if not ver:
-            raise ValueError("Specified version not available.")
+            if os.path.exists(fpath):
+                logger.debug("Found custom vspec ({})".format(self.version_name))
+                with open(fpath) as fp:
+                    return json.load(fp)
+            else:
+                die("Specified version not available")
         url = ver["url"]
         # Pull the hash out of the url. This is prone to breakage, maybe
         # just try to download the vspec and don't care about whether it
         # is up to date or not.
         url_split = urllib.parse.urlsplit(url)
         sha1 = posixpath.basename(posixpath.dirname(url_split.path))
+
         if os.path.exists(fpath) and file_sha1(fpath) == sha1:
-            logger.debug("Using cached vspec files, hash matches manifest")
+            logger.debug(
+                "Using cached vspec files, hash matches manifest ({})".format(
+                    self.version_name
+                )
+            )
             with open(fpath) as fp:
                 return json.load(fp)
 
@@ -162,10 +172,7 @@ class Version:
             j = json.loads(raw)
             return j
         except requests.ConnectionError:
-            logger.error(
-                "Failed to retrieve version json file. Check your internet connection."
-            )
-            sys.exit(1)
+            die("Failed to retrieve version json file. Check your internet connection.")
 
     @cached_property
     def vspec(self):
@@ -188,8 +195,7 @@ class Version:
                 fp.write(raw)
             return json.loads(raw)
         except requests.ConnectionError:
-            logger.error("Failed to retrieve asset index.")
-            sys.exit(1)
+            die("Failed to retrieve asset index.")
 
     def _libraries(self, natives_only=False):
         # The rule matching in this function could be cached,
@@ -443,16 +449,14 @@ def jar(which, output):
     """Download the file and save."""
     dlspec = g_vobj.vspec.downloads.get(which, None)
     if not dlspec:
-        logger.error("No such dlspec exists for version {}".format(g_vobj.version_name))
-        sys.exit(1)
+        die("No such dlspec exists for version {}".format(g_vobj.version_name))
     url = dlspec["url"]
     sha1 = dlspec["sha1"]
     ext = posixpath.basename(urllib.parse.urlsplit(url).path).split(".")[-1]
     if output is None:
         output = "{}_{}.{}".format(g_vobj.version_name, which, ext)
     if os.path.exists(output):
-        logger.error("Refusing to overwrite {}".format(output))
-        sys.exit(1)
+        die("Refusing to overwrite {}".format(output))
     logger.info("Hash should be {}".format(sha1))
     logger.info("Downloading the {} file and saving to {}".format(which, output))
     urllib.request.urlretrieve(dlspec["url"], output)
