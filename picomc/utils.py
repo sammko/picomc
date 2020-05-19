@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import subprocess
 import sys
 from functools import partial
 from os.path import expanduser, join
@@ -44,6 +45,25 @@ def file_sha1(filename):
 def die(mesg, code=1):
     logger.error(mesg)
     sys.exit(code)
+
+
+def assert_java(java):
+    try:
+        ret = subprocess.run([java, "-version"], capture_output=True)
+        version = ret.stderr.decode("utf8").splitlines()[0]
+        # This check is probably not bulletproof
+        logger.info("Using java version: {}".format(version))
+        if "1.8.0_" not in version:
+            logger.warn(
+                "Minecraft uses java 1.8.0 by default."
+                " You may experience issues, especially with older versions of Minecraft."
+            )
+    except FileNotFoundError:
+        die(
+            "Could not execute java at: {}. Have you installed it? Is it in yout PATH?".format(
+                java
+            )
+        )
 
 
 class ConfigLoader:

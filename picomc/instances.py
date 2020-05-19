@@ -8,7 +8,7 @@ import click
 from picomc.account import AccountError
 from picomc.env import Env, get_filepath
 from picomc.logging import logger
-from picomc.utils import ConfigLoader, join_classpath
+from picomc.utils import ConfigLoader, assert_java, join_classpath
 
 
 class NativesExtractor:
@@ -150,6 +150,9 @@ class Instance:
         # Rewrite it.
 
         java = [self.get_java()]
+
+        assert_java(java[0])
+
         java.append("-Xms{}".format(self.config["java.memory.min"]))
         java.append("-Xmx{}".format(self.config["java.memory.max"]))
         java += self.config["java.jvmargs"].split()
