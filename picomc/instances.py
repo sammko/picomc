@@ -29,11 +29,12 @@ class NativesExtractor:
             dedup.add(fullpath)
             logger.debug("Extracting natives archive: {}".format(fullpath))
             with zipfile.ZipFile(fullpath) as zf:
+                # TODO take exclude into account
                 zf.extractall(path=self.ndir)
 
     def __exit__(self, ext_type, exc_value, traceback):
         logger.debug("Cleaning up natives.")
-        shutil.rmtree(self.ndir)
+        # shutil.rmtree(self.ndir)
         # print(self.ndir)
 
 
@@ -138,13 +139,14 @@ class Instance:
         vobj = Env.vm.get_version(version or self.config["version"])
         logger.info("Launching instance {}!".format(self.name))
         logger.info("Using minecraft version: {}".format(vobj.version_name))
-        vobj.prepare()
         logger.info("Using account: {}".format(account))
-        os.makedirs(get_filepath("instances", self.name, "minecraft"), exist_ok=True)
+        gamedir = get_filepath("instances", self.name, "minecraft")
+        os.makedirs(gamedir, exist_ok=True)
+        vobj.prepare_launch(gamedir)
         with NativesExtractor(self, vobj):
-            self._exec_mc(account, vobj)
+            self._exec_mc(account, vobj, gamedir)
 
-    def _exec_mc(self, account, v):
+    def _exec_mc(self, account, v, gamedir):
         # this is temporary. FIXME
         # This 'function' is quickly getting worse and worse.
         # Rewrite it.
@@ -166,7 +168,6 @@ class Instance:
 
         # Make functions out of these two
         natives = get_filepath("instances", self.name, "natives")
-        gamedir = get_filepath("instances", self.name, "minecraft")
 
         mc = v.vspec.mainClass
 
@@ -205,8 +206,7 @@ class Instance:
                 game_directory=gamedir,
                 assets_root=get_filepath("assets"),
                 assets_index_name=v.vspec.assetIndex["id"],
-                # FIXME Ugly hack relying on untested behaviour:
-                game_assets=get_filepath("assets", "virtual", "legacy"),
+                game_assets=v.get_virtual_asset_path(),
             )
             smcargs.append(a)
 

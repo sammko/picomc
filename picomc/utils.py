@@ -34,6 +34,11 @@ def write_profiles_dummy():
         fd.write(r'{"profiles":{}}')
 
 
+def file_verify_relative(path, sha1):
+    abspath = get_filepath(path)
+    return os.path.isfile(abspath) and file_sha1(abspath) == sha1
+
+
 def file_sha1(filename):
     h = hashlib.sha1()
     with open(filename, "rb", buffering=0) as f:

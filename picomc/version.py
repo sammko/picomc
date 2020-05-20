@@ -3,9 +3,11 @@ import operator
 import os
 import posixpath
 import re
+import shutil
 import sys
 import urllib.parse
 import urllib.request
+from collections import defaultdict
 from functools import reduce
 from platform import architecture
 
@@ -14,7 +16,7 @@ import requests
 from picomc.downloader import DownloadQueue
 from picomc.env import Env, get_filepath
 from picomc.logging import logger
-from picomc.utils import cached_property, die, file_sha1
+from picomc.utils import cached_property, die, file_sha1, file_verify_relative
 
 
 class VersionType:
@@ -298,54 +300,62 @@ class Version:
                 q.add(paths.url, paths.local_relpath)
         q.download(paths.basedir)
 
+    def _populate_virtual_assets(self, where):
+        for name, obj in self.raw_asset_index["objects"].items():
+            sha = obj["hash"]
+            objpath = get_filepath("assets", "objects", sha[0:2], sha)
+            path = os.path.join(where, *name.split("/"))
+            # Maybe check file hash first? Would that be faster?
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            shutil.copy(get_filepath(objpath), os.path.join(where, path))
+
+    def get_virtual_asset_path(self):
+        return get_filepath("assets", "virtual", self.vspec.assetIndex["id"])
+
+    def prepare_assets_launch(self, gamedir):
+        is_map_resources = self.raw_asset_index.get("map_to_resources", False)
+        if is_map_resources:
+            logger.info("Mapping resources")
+            where = os.path.join(gamedir, "resources")
+            logger.debug("Resources path: {}".format(where))
+            self._populate_virtual_assets(where)
+
     def download_assets(self, force=False):
         """Downloads missing assets."""
-        # Produce reverse dict, as multiple files with a single hash
-        # can exist and should only be downloaded once.
-        rev = dict()
-        for name, obj in self.raw_asset_index["objects"].items():
-            h = obj["hash"]
-            if h in rev:
-                rev[h].append(name)
-            else:
-                rev[h] = [name]
 
-        logger.info("Checking {} assets.".format(len(rev.keys())))
+        hashes = set()
+        for obj in self.raw_asset_index["objects"].values():
+            hashes.add(obj["hash"])
+
+        logger.info("Checking {} assets.".format(len(hashes)))
 
         is_virtual = self.raw_asset_index.get("virtual", False)
 
         q = DownloadQueue()
-        for digest, names in rev.items():
-            # This is a mess, should be rewritten. FIXME
-            fname = os.path.join("objects", digest[0:2], digest)
-            vfnames = (
-                os.path.join("virtual", "legacy", *name.split("/")) for name in names
-            )
-            fullfname = get_filepath("assets", "objects", digest[0:2], digest)
-            url = urllib.parse.urljoin(
-                self.ASSETS_URL, "{}/{}".format(digest[0:2], digest)
-            )
-            outs = []
-            # FIXME: probably should be checking hashes here...
-            if force or not os.path.exists(fullfname):
-                outs.append(fname)
-            if is_virtual:
-                for vfname in vfnames:
-                    if force or not os.path.exists(
-                        get_filepath("assets", *vfname.split("/"))
-                    ):
-                        outs.append(vfname)
-            if outs:
-                q.add(url, *outs)
+        for sha in hashes:
+            path = os.path.join("assets", "objects", sha[0:2], sha)
+            if file_verify_relative(path, sha):
+                continue
+            url = urllib.parse.urljoin(self.ASSETS_URL, posixpath.join(sha[0:2], sha))
+            q.add(url, path)
 
         logger.info("Downloading {} assets. This could take a while.".format(len(q)))
+        q.download(Env.app_root)
 
-        q.download(get_filepath("assets"))
+        if is_virtual:
+            logger.info("Copying virtual assets")
+            where = self.get_virtual_asset_path()
+            logger.debug("Virtual asset path: {}".format(where))
+            self._populate_virtual_assets(where)
 
     def prepare(self):
         self.download_jarfile()
         self.download_libraries()
         self.download_assets()
+
+    def prepare_launch(self, gamedir):
+        self.prepare()
+        self.prepare_assets_launch(gamedir)
 
 
 class VersionManager:
