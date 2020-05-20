@@ -34,7 +34,7 @@ class NativesExtractor:
 
     def __exit__(self, ext_type, exc_value, traceback):
         logger.debug("Cleaning up natives.")
-        # shutil.rmtree(self.ndir)
+        shutil.rmtree(self.ndir)
         # print(self.ndir)
 
 
