@@ -1,1 +1,2 @@
-__version__ = "0.2.1"
+# This is referenced in setup.py
+from picomc.main import __version__, main

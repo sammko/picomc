@@ -1,6 +1,6 @@
 #!/bin/python
 
 if __name__ == "__main__":
-    from picomc.main import main
+    from picomc import main
 
     main()

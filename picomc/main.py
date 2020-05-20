@@ -3,7 +3,6 @@ from contextlib import ExitStack
 
 import click
 import picomc.logging
-from picomc import __version__
 from picomc.account import AccountManager, register_account_cli
 from picomc.config import register_config_cli
 from picomc.env import Env, get_default_root, get_filepath
@@ -11,6 +10,8 @@ from picomc.instances import register_instance_cli
 from picomc.logging import logger
 from picomc.utils import ConfigLoader, write_profiles_dummy
 from picomc.version import VersionManager, register_version_cli
+
+__version__ = "0.2.1"
 
 
 def check_directories():
