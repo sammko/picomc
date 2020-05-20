@@ -1,12 +1,19 @@
+import getpass
 import os
 from contextlib import ExitStack
 
 import click
 import picomc.logging
-from picomc.account import AccountManager, register_account_cli
+from picomc.account import (
+    AccountError,
+    AccountManager,
+    OfflineAccount,
+    OnlineAccount,
+    register_account_cli,
+)
 from picomc.config import register_config_cli
 from picomc.env import Env, get_default_root, get_filepath
-from picomc.instances import register_instance_cli
+from picomc.instances import Instance, register_instance_cli
 from picomc.logging import logger
 from picomc.utils import ConfigLoader, write_profiles_dummy
 from picomc.version import VersionManager, register_version_cli
@@ -69,6 +76,32 @@ register_account_cli(picomc_cli)
 register_version_cli(picomc_cli)
 register_instance_cli(picomc_cli)
 register_config_cli(picomc_cli)
+
+
+@picomc_cli.command()
+@click.argument("version", default="latest")
+def play(version):
+    """Play Minecraft without having to deal with stuff"""
+    try:
+        account = Env.am.get_default()
+    except AccountError:
+        username = input("Choose your account name:\n> ")
+        email = input(
+            "\nIf you have a mojang account with a Minecraft license,\n"
+            "enter your email. Leave blank if you want to play offline:\n> "
+        )
+        if email:
+            account = OnlineAccount.new(username, email)
+            password = getpass.getpass("\nPassword:\n> ")
+            account.authenticate(password)
+        else:
+            account = OfflineAccount.new(username)
+        Env.am.add(account)
+    ready = Instance.exists("default")
+    with Instance("default") as inst:
+        if not ready:
+            inst.populate("latest")
+        inst.launch(account, version)
 
 
 def main():

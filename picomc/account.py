@@ -101,7 +101,6 @@ class OnlineAccount(Account):
         )
         self.is_authenticated = True
         self.fresh = True
-        Env.am.save(self)
 
 
 class AccountError(ValueError):
@@ -224,6 +223,7 @@ def authenticate():
         # add some output here
         p = getpass.getpass("Password: ")
         a.authenticate(p)
+        Env.am.save(p)
     except AuthenticationError as e:
         print(e)
 
