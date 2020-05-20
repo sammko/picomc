@@ -52,6 +52,9 @@ def picomc_cli(debug, root):
     """picomc is a minimal CLI Minecraft launcher."""
     picomc.logging.initialize(debug)
     Env.debug = debug
+    root_env = os.getenv("PICOMC_ROOT")
+    if root_env is not None:
+        root = root_env
     Env.app_root = os.path.abspath(root)
     check_directories()
 
