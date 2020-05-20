@@ -223,13 +223,23 @@ class Version:
         # For some reason I don't remember, we are constructing the paths
         # to library downloads manually instead of using the url and hash
         # provided in the vspec. This should probably be reworked and hashes
-        # should be checked instead of just the filenames
+        # should be checked instead of just the filenames.
+        #
+        # The reason is that the downloads tag is only present in vanilla vspec,
+        # forge, optifine, fabric don't provide it.
         suffix = ""
+        sha = None
         if "natives" in lib:
             if Env.platform in lib["natives"]:
                 suffix = "-" + lib["natives"][Env.platform]
                 # FIXME this is an ugly hack
                 suffix = suffix.replace("${arch}", architecture()[0][:2])
+                try:
+                    sha = lib["downloads"]["classifiers"]["natives-" + Env.platform][
+                        "sha1"
+                    ]
+                except KeyError:
+                    pass
             else:
                 logger.warn(
                     (
@@ -238,6 +248,15 @@ class Version:
                     ).format(lib["name"], Env.platform)
                 )
                 return None
+        else:
+            try:
+                sha = lib["downloads"]["artifact"]["sha1"]
+            except KeyError:
+                pass
+
+        if sha is None:
+            logger.debug("Library {} has no sha in vspec".format(lib["name"]))
+
         fullname = lib["name"]
         url_base = lib.get("url", Version.LIBRARIES_URL)
         p, n, v, *va = fullname.split(":")
@@ -255,6 +274,8 @@ class Version:
             basedir = get_filepath("libraries")
             local_relpath = os.path.join(*fullpath.split("/"))
             local_abspath = os.path.join(basedir, local_relpath)
+
+        LibPaths.sha = sha
 
         return LibPaths
 
@@ -296,7 +317,13 @@ class Version:
             paths = self._resolve_library(lib)
             if not paths:
                 continue
-            if force or not os.path.exists(paths.local_abspath):
+            ok = (
+                os.path.isfile(paths.local_abspath)
+                and os.path.getsize(paths.local_abspath) > 0
+            )
+            if paths.sha is not None:
+                ok = ok and file_sha1(paths.local_abspath) == paths.sha
+            if force or not ok:
                 q.add(paths.url, paths.local_relpath)
         q.download(paths.basedir)
 
