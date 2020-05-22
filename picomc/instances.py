@@ -6,9 +6,10 @@ from platform import architecture
 
 import click
 from picomc.account import AccountError
+from picomc.config import Config
 from picomc.env import Env, get_filepath
 from picomc.logging import logger
-from picomc.utils import ConfigLoader, assert_java, join_classpath
+from picomc.utils import assert_java, join_classpath
 
 
 class NativesExtractor:
@@ -100,34 +101,19 @@ def process_arguments(arguments_dict):
     return (subproc(arguments_dict["game"]), subproc(arguments_dict.get("jvm")))
 
 
-class BackupDict(dict):
-    def __getitem__(self, i):
-        try:
-            return dict.__getitem__(self, i)
-        except KeyError:
-            return Env.gconf[i]
-
-
-class InstanceConfigLoader(ConfigLoader):
-    def __init__(self, instance_name):
-        default_config = {"version": "latest"}
-        cfg_file = os.path.join("instances", instance_name, "config.json")
-        ConfigLoader.__init__(self, cfg_file, default_config, dict_impl=BackupDict)
-
-
 class Instance:
     def __init__(self, name):
         self.name = sanitize_name(name)
 
     def __enter__(self):
-        self._cl = InstanceConfigLoader(self.name)
-        self.config = self._cl.__enter__()
+        self.config = Config(
+            get_filepath("instances", self.name, "config.json"), bottom=Env.gconf
+        )
+        Env.commit_manager.add(self.config)
         return self
 
     def __exit__(self, ext_type, exc_value, traceback):
-        self._cl.__exit__(ext_type, exc_value, traceback)
-        del self.config
-        del self._cl
+        pass
 
     def get_java(self):
         return self.config["java.path"]
@@ -143,6 +129,9 @@ class Instance:
         gamedir = get_filepath("instances", self.name, "minecraft")
         os.makedirs(gamedir, exist_ok=True)
         vobj.prepare_launch(gamedir)
+        # Do this here so that configs are not needlessly overwritten after
+        # the game quits
+        Env.commit_manager.commit_all_dirty()
         with NativesExtractor(self, vobj):
             self._exec_mc(account, vobj, gamedir)
 

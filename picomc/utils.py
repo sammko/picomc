@@ -1,3 +1,4 @@
+import collections
 import hashlib
 import json
 import os
@@ -69,33 +70,3 @@ def assert_java(java):
                 java
             )
         )
-
-
-class ConfigLoader:
-    def __init__(self, config_file, defaults={}, dict_impl=dict):
-        self.filename = get_filepath(config_file)
-        self.dict_impl = dict_impl
-        self.data = dict_impl(defaults)
-
-    def __enter__(self):
-        self._load()
-        return self.data
-
-    def __exit__(self, ext_type, exc_value, traceback):
-        self._save()
-
-    def _load(self):
-        logger.debug("Loading Config from {}.".format(self.filename))
-        try:
-            with open(self.filename, "r") as json_file:
-                self.data.update(
-                    json.load(json_file, object_hook=lambda d: self.dict_impl(d))
-                )
-        except FileNotFoundError:
-            pass
-
-    def _save(self):
-        logger.debug("Saving Config to {}.".format(self.filename))
-        os.makedirs(os.path.dirname(self.filename), exist_ok=True)
-        with open(self.filename, "w") as json_file:
-            json.dump(self.data, json_file, indent=4)

@@ -1,9 +1,9 @@
 import uuid
 
 import click
+from picomc.config import Config
 from picomc.env import Env
 from picomc.logging import logger
-from picomc.utils import ConfigLoader
 from picomc.yggdrasil import AuthenticationError, MojangYggdrasil, RefreshError
 
 
@@ -119,15 +119,13 @@ class AccountManager:
     cfg_file = "accounts.json"
 
     def __enter__(self):
-        self._cl = ConfigLoader(self.cfg_file, DEFAULT_CONFIG)
-        self.config = self._cl.__enter__()
+        self.config = Config(self.cfg_file, init=DEFAULT_CONFIG)
+        Env.commit_manager.add(self.config)
         self.yggdrasil = MojangYggdrasil(self.config["client_token"])
         return self
 
     def __exit__(self, ext_type, exc_value, traceback):
-        self._cl.__exit__(ext_type, exc_value, traceback)
-        del self.config
-        del self._cl
+        pass
 
     def list(self):
         return self.config["accounts"].keys()
@@ -164,12 +162,16 @@ class AccountManager:
 
     def save(self, account):
         self.config["accounts"][account.name] = account.to_dict()
+        # HACK This doesn't trip the crappy dirty flag on config, set manually
+        self.config.dirty = True
 
     def remove(self, name):
         try:
             if self.config["default"] == name:
                 self.config["default"] = None
             del self.config["accounts"][name]
+            # HACK This doesn't trip the crappy dirty flag on config, set manually
+            self.config.dirty = True
         except KeyError:
             raise AccountError("Account does not exist:", name)
 
@@ -223,7 +225,7 @@ def authenticate():
         # add some output here
         p = getpass.getpass("Password: ")
         a.authenticate(p)
-        Env.am.save(p)
+        Env.am.save(a)
     except AuthenticationError as e:
         print(e)
 

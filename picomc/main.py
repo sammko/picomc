@@ -11,14 +11,21 @@ from picomc.account import (
     OnlineAccount,
     register_account_cli,
 )
-from picomc.config import register_config_cli
+from picomc.config import CommitManager, Config, register_config_cli
 from picomc.env import Env, get_default_root, get_filepath
 from picomc.instances import Instance, register_instance_cli
 from picomc.logging import logger
-from picomc.utils import ConfigLoader, write_profiles_dummy
+from picomc.utils import write_profiles_dummy
 from picomc.version import VersionManager, register_version_cli
 
 __version__ = "0.2.2"
+
+DEFAULT_CONFIG = {
+    "java.path": "java",
+    "java.memory.min": "512M",
+    "java.memory.max": "2G",
+    "java.jvmargs": "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M",
+}
 
 
 def check_directories():
@@ -52,6 +59,9 @@ def picomc_cli(debug, root):
     """picomc is a minimal CLI Minecraft launcher."""
     picomc.logging.initialize(debug)
     Env.debug = debug
+    Env.commit_manager = CommitManager()
+
+    Env.estack.callback(lambda: Env.commit_manager.commit_all_dirty())
     root_env = os.getenv("PICOMC_ROOT")
     if root_env is not None:
         root = root_env
@@ -62,16 +72,10 @@ def picomc_cli(debug, root):
 
     logger.debug("Using application directory: {}".format(Env.app_root))
 
+    Env.gconf = Config("config.json", bottom=DEFAULT_CONFIG)
+    Env.commit_manager.add(Env.gconf)
+
     Env.am = Env.estack.enter_context(AccountManager())
-    default_config = {
-        "java.path": "java",
-        "java.memory.min": "512M",
-        "java.memory.max": "2G",
-        "java.jvmargs": "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M",
-    }
-    Env.gconf = Env.estack.enter_context(
-        ConfigLoader("config.json", defaults=default_config)
-    )
     Env.vm = VersionManager()
 
 

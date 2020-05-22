@@ -11,6 +11,7 @@ from os.path import expanduser, join
 class Env:
     am = None
     vm = None
+    commit_manager = None
     estack: ExitStack
     gconf: dict
     app_root: str
