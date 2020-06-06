@@ -54,6 +54,9 @@ def die(mesg, code=1):
 
 
 def assert_java(java):
+    # TODO Consider using `java -XshowSettings:properties -version` for
+    # somewhat machine readable information, including whether the installation
+    # is 32 or 64 bit and issue a warning on 32 bit.
     try:
         ret = subprocess.run([java, "-version"], capture_output=True)
         version = ret.stderr.decode("utf8").splitlines()[0]
