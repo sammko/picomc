@@ -39,7 +39,6 @@ class NativesExtractor:
     def __exit__(self, ext_type, exc_value, traceback):
         logger.debug("Cleaning up natives.")
         shutil.rmtree(self.ndir)
-        # print(self.ndir)
 
 
 def sanitize_name(name):
@@ -60,7 +59,6 @@ def process_arguments(arguments_dict):
         if "features" in rule:
             return False
 
-        osmatch = True
         if "os" in rule:
             # FIXME:
             # The os matcher may apparently also contain a version spec
@@ -70,15 +68,21 @@ def process_arguments(arguments_dict):
             # The "name" key is apparently also not required (1.13-pre4.json)
             # and an "arch" rule may be present instead. Possible values are
             # currently unknown.
+            #
+            # This value can be extracted from the output of
+            # `java -XshowSettings:properties -version`. It is the `os.version`
+            # field.
+            osmatch = True
             if "name" in rule["os"]:
                 osmatch = osmatch and rule["os"]["name"] == Env.platform
             if "arch" in rule["os"]:
-                logger.warn("Matching arch rule, this may not work.")
+                logger.debug("Matching arch rule, this may not work.")
                 arch = {"32": "x86"}.get(architecture()[0][:2], "?")
                 osmatch = osmatch and rule["os"]["arch"] == arch
-        if osmatch:
-            return rule["action"] == "allow"
-        return None
+            return osmatch
+
+        logger.warn("Not matching unknown rule {}".format(rule.keys()))
+        return False
 
     def subproc(obj):
         args = []
@@ -86,13 +90,14 @@ def process_arguments(arguments_dict):
             if isinstance(a, str):
                 args.append(a)
             else:
-                allow = "rules" not in a
-                for rule in a["rules"]:
-                    m = match_rule(rule)
-                    if m is not None:
-                        allow = m
-                if not allow:
-                    continue
+                if "rules" in a:
+                    sat = False
+                    for rule in a["rules"]:
+                        m = match_rule(rule)
+                        if m:
+                            sat = rule["action"] == "allow"
+                    if not sat:
+                        continue
                 if isinstance(a["value"], list):
                     args.extend(a["value"])
                 elif isinstance(a["value"], str):
@@ -139,12 +144,7 @@ class Instance:
             self._exec_mc(account, vobj, gamedir)
 
     def _exec_mc(self, account, v, gamedir):
-        # this is temporary. FIXME
-        # This 'function' is quickly getting worse and worse.
-        # Rewrite it.
-
         java = [self.get_java()]
-
         assert_java(java[0])
 
         java.append("-Xms{}".format(self.config["java.memory.min"]))
@@ -158,7 +158,6 @@ class Instance:
             ("picomc", "mojang") if account.online else ("picomc/offline", "offline")
         )
 
-        # Make functions out of these two
         natives = get_filepath("instances", self.name, "natives")
 
         mc = v.vspec.mainClass
