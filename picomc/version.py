@@ -10,9 +10,11 @@ import urllib.request
 from collections import defaultdict
 from functools import reduce
 from platform import architecture
+from string import Template
 
 import click
 import requests
+
 from picomc.downloader import DownloadQueue
 from picomc.env import Env, get_filepath
 from picomc.logging import logger
@@ -232,8 +234,7 @@ class Version:
         if "natives" in lib:
             if Env.platform in lib["natives"]:
                 suffix = "-" + lib["natives"][Env.platform]
-                # FIXME this is an ugly hack
-                suffix = suffix.replace("${arch}", architecture()[0][:2])
+                suffix = Template(suffix).substitute(arch=architecture()[0][:2])
                 try:
                     sha = lib["downloads"]["classifiers"]["natives-" + Env.platform][
                         "sha1"

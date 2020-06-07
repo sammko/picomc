@@ -3,8 +3,11 @@ import shutil
 import subprocess
 import zipfile
 from platform import architecture
+from string import Template
 
 import click
+
+import picomc
 from picomc.account import AccountError
 from picomc.config import Config
 from picomc.env import Env, get_filepath
@@ -167,22 +170,21 @@ class Instance:
             mcargs, jvmargs = process_arguments(v.vspec.arguments)
             sjvmargs = []
             for a in jvmargs:
-                a = a.replace("${", "{")  # oof FIXME
-                a = a.format(
+                tmpl = Template(a)
+                res = tmpl.substitute(
                     natives_directory=natives,
                     launcher_name="picomc",
-                    launcher_version="0",  # Do something proper here. FIXME.
+                    launcher_version=picomc.__version__,
                     classpath=classpath,
                 )
-                sjvmargs.append(a)
+                sjvmargs.append(res)
 
         account.refresh()
 
         smcargs = []
         for a in mcargs:
-            # This should be done differently. FIXME
-            a = a.replace("${", "{")
-            a = a.format(
+            tmpl = Template(a)
+            res = tmpl.substitute(
                 auth_player_name=account.gname,
                 auth_uuid=account.uuid,
                 auth_access_token=account.access_token,
@@ -197,7 +199,7 @@ class Instance:
                 assets_index_name=v.vspec.assetIndex["id"],
                 game_assets=v.get_virtual_asset_path(),
             )
-            smcargs.append(a)
+            smcargs.append(res)
 
         fargs = java + sjvmargs + [mc] + smcargs
         logger.debug("Launching: " + " ".join(fargs))
