@@ -50,7 +50,7 @@ def check_directories():
 
 
 @click.group()
-@click.option("--debug/--no-debug", default=False)
+@click.option("--debug/--no-debug", default=None)
 @click.option(
     "-r", "--root", help="Application data directory.", default=get_default_root()
 )
@@ -86,7 +86,7 @@ register_config_cli(picomc_cli)
 
 
 @picomc_cli.command()
-@click.argument("version", default="latest")
+@click.argument("version", default=False)
 def play(version):
     """Play Minecraft without having to deal with stuff"""
     try:
