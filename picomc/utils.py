@@ -77,6 +77,8 @@ def assert_java(java):
                 " You may experience issues, especially with older versions of Minecraft."
             )
 
+        return jinfo
+
     except FileNotFoundError:
         die(
             "Could not execute java at: {}. Have you installed it? Is it in yout PATH?".format(

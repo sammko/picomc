@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import subprocess
 import zipfile
@@ -6,7 +7,6 @@ from platform import architecture
 from string import Template
 
 import click
-
 import picomc
 from picomc.account import AccountError
 from picomc.config import Config
@@ -45,7 +45,14 @@ def sanitize_name(name):
     return name.replace("..", "_").replace("/", "_")
 
 
-def process_arguments(arguments_dict):
+def process_arguments(arguments_dict, java_info):
+    def get_os_info():
+        version = java_info.get("os.version", None)
+        arch = java_info.get("os.arch", None)
+        if not arch:
+            arch = {"32": "x86"}.get(architecture()[0][:2], "?")
+        return version, arch
+
     def match_rule(rule):
         # This launcher currently does not support any of the extended
         # features, which currently include at least:
@@ -57,25 +64,15 @@ def process_arguments(arguments_dict):
             return False
 
         if "os" in rule:
-            # FIXME:
-            # The os matcher may apparently also contain a version spec
-            # which is probably a regex matched against the java resported
-            # os version. See 17w50a.json for an example. Ignoring it for now.
-            # This may lead to older versions of Windows matchins as W10.
-            # The "name" key is apparently also not required (1.13-pre4.json)
-            # and an "arch" rule may be present instead. Possible values are
-            # currently unknown.
-            #
-            # This value can be extracted from the output of
-            # `java -XshowSettings:properties -version`. It is the `os.version`
-            # field.
+            os_version, os_arch = get_os_info()
+
             osmatch = True
             if "name" in rule["os"]:
                 osmatch = osmatch and rule["os"]["name"] == Env.platform
             if "arch" in rule["os"]:
-                logger.debug("Matching arch rule, this may not work.")
-                arch = {"32": "x86"}.get(architecture()[0][:2], "?")
-                osmatch = osmatch and rule["os"]["arch"] == arch
+                osmatch = osmatch and rule["os"]["arch"] == os_arch
+            if "version" in rule["os"]:
+                osmatch = osmatch and re.match(rule["os"]["version"], os_version)
             return osmatch
 
         logger.warn("Not matching unknown rule {}".format(rule.keys()))
@@ -142,7 +139,7 @@ class Instance:
 
     def _exec_mc(self, account, v, gamedir):
         java = [self.get_java()]
-        assert_java(java[0])
+        java_info = assert_java(java[0])
 
         java.append("-Xms{}".format(self.config["java.memory.min"]))
         java.append("-Xmx{}".format(self.config["java.memory.max"]))
@@ -163,7 +160,7 @@ class Instance:
             mcargs = v.vspec.minecraftArguments.split()
             sjvmargs = ["-Djava.library.path={}".format(natives), "-cp", classpath]
         elif hasattr(v.vspec, "arguments"):
-            mcargs, jvmargs = process_arguments(v.vspec.arguments)
+            mcargs, jvmargs = process_arguments(v.vspec.arguments, java_info)
             sjvmargs = []
             for a in jvmargs:
                 tmpl = Template(a)
