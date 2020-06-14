@@ -9,6 +9,7 @@ from os.path import expanduser, join
 from types import SimpleNamespace
 
 from picomc.env import get_filepath
+from picomc.javainfo import java_info, java_version
 from picomc.logging import logger
 
 
@@ -54,19 +55,28 @@ def die(mesg, code=1):
 
 
 def assert_java(java):
-    # TODO Consider using `java -XshowSettings:properties -version` for
-    # somewhat machine readable information, including whether the installation
-    # is 32 or 64 bit and issue a warning on 32 bit.
     try:
-        ret = subprocess.run([java, "-version"], capture_output=True)
-        version = ret.stderr.decode("utf8").splitlines()[0]
-        # This check is probably not bulletproof
-        logger.info("Using java version: {}".format(version))
-        if "1.8.0_" not in version:
+        jinfo = java_info(java)
+        jver = java_version(java)
+        badjv = False
+        if jinfo:
+            badjv = not jinfo["java.version"].startswith("1.8.0")
+            bitness = jinfo.get("sun.arch.data.model", None)
+            if bitness and bitness != "64":
+                logger.warn(
+                    "You are not using 64-bit java. Things will probably not work."
+                )
+        else:
+            badjv = "1.8.0_" not in jver
+
+        logger.info("Using java version: {}".format(jver))
+
+        if badjv:
             logger.warn(
                 "Minecraft uses java 1.8.0 by default."
                 " You may experience issues, especially with older versions of Minecraft."
             )
+
     except FileNotFoundError:
         die(
             "Could not execute java at: {}. Have you installed it? Is it in yout PATH?".format(
