@@ -18,7 +18,7 @@ from picomc.logging import logger
 from picomc.utils import write_profiles_dummy
 from picomc.version import VersionManager, register_version_cli
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 DEFAULT_CONFIG = {
     "java.path": "java",
