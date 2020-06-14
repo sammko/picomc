@@ -46,9 +46,6 @@ def sanitize_name(name):
 
 
 def process_arguments(arguments_dict):
-    """This is a horrible function the only purpose of which is to die and be
-    rewritten from scratch. Along with the native library preprocessor."""
-
     def match_rule(rule):
         # This launcher currently does not support any of the extended
         # features, which currently include at least:
