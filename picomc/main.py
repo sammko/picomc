@@ -87,23 +87,27 @@ register_config_cli(picomc_cli)
 
 @picomc_cli.command()
 @click.argument("version", default=False)
-def play(version):
+@click.option("-a", "--account", "account_name")
+def play(version, account_name):
     """Play Minecraft without having to deal with stuff"""
-    try:
-        account = Env.am.get_default()
-    except AccountError:
-        username = input("Choose your account name:\n> ")
-        email = input(
-            "\nIf you have a mojang account with a Minecraft license,\n"
-            "enter your email. Leave blank if you want to play offline:\n> "
-        )
-        if email:
-            account = OnlineAccount.new(username, email)
-            password = getpass.getpass("\nPassword:\n> ")
-            account.authenticate(password)
-        else:
-            account = OfflineAccount.new(username)
-        Env.am.add(account)
+    if account_name:
+        account = Env.am.get(account_name)
+    else:
+        try:
+            account = Env.am.get_default()
+        except AccountError:
+            username = input("Choose your account name:\n> ")
+            email = input(
+                "\nIf you have a mojang account with a Minecraft license,\n"
+                "enter your email. Leave blank if you want to play offline:\n> "
+            )
+            if email:
+                account = OnlineAccount.new(username, email)
+                password = getpass.getpass("\nPassword:\n> ")
+                account.authenticate(password)
+            else:
+                account = OfflineAccount.new(username)
+            Env.am.add(account)
     ready = Instance.exists("default")
     with Instance("default") as inst:
         if not ready:
