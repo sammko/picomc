@@ -46,7 +46,7 @@ def create_account(account_name, mojang_username):
 
 @account_cli.command()
 def authenticate():
-    """Ask for password and retrieve access token from Mojang servers."""
+    """Retrieve access token from Mojang servers using password."""
     import getpass
 
     try:
@@ -61,6 +61,7 @@ def authenticate():
 
 @account_cli.command()
 def refresh():
+    """Refresh access token with Mojang servers."""
     try:
         a = Env.am.get(g_aname)
         a.refresh()
@@ -70,6 +71,7 @@ def refresh():
 
 @account_cli.command()
 def remove():
+    """Remove the account."""
     try:
         Env.am.remove(g_aname)
     except AccountError as e:
@@ -78,6 +80,7 @@ def remove():
 
 @account_cli.command()
 def setdefault():
+    """Set the account as default."""
     try:
         default = Env.am.get(g_aname)
         Env.am.set_default(default)

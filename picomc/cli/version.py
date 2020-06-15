@@ -43,6 +43,7 @@ def list_versions(release, snapshot, alpha, beta, local, all):
 
 @version_cli.command()
 def prepare():
+    """Download required files for the version."""
     g_vobj.prepare()
 
 

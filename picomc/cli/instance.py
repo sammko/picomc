@@ -46,9 +46,10 @@ def list_instances():
 
 
 @instance_cli.command()
-def remove():
+def delete():
+    """Delete the instance (from disk)."""
     if Instance.exists(g_iname):
-        Instance.remove(g_iname)
+        Instance.delete(g_iname)
     else:
         logger.error("No such instance exists.")
 

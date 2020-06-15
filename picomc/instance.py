@@ -198,5 +198,5 @@ class Instance:
         return os.path.exists(get_filepath("instances", name, "config.json"))
 
     @staticmethod
-    def remove(name):
+    def delete(name):
         shutil.rmtree(get_filepath("instances", name))

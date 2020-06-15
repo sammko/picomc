@@ -24,12 +24,14 @@ def show():
 @click.argument("key")
 @click.argument("value")
 def _set(key, value):
+    """Set a global config value."""
     Env.gconf[key] = value
 
 
 @config_cli.command()
 @click.argument("key")
 def get(key):
+    """Print a global config value."""
     try:
         print(Env.gconf[key])
     except KeyError:
@@ -39,6 +41,7 @@ def get(key):
 @config_cli.command()
 @click.argument("key")
 def delete(key):
+    """Delete a key from the global config."""
     try:
         del Env.gconf[key]
     except KeyError:
