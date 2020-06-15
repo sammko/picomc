@@ -46,6 +46,7 @@ def create_account(account_name, mojang_username):
 
 @account_cli.command()
 def authenticate():
+    """Ask for password and retrieve access token from Mojang servers."""
     import getpass
 
     try:
