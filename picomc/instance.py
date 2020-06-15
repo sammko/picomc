@@ -41,8 +41,8 @@ class NativesExtractor:
 
 def process_arguments(arguments_dict, java_info):
     def get_os_info():
-        version = java_info.get("os.version", None)
-        arch = java_info.get("os.arch", None)
+        version = java_info.get("os.version", None).decode("ascii")
+        arch = java_info.get("os.arch", None).decode("ascii")
         if not arch:
             arch = {"32": "x86"}.get(architecture()[0][:2], "?")
         return version, arch

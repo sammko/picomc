@@ -80,8 +80,8 @@ def assert_java(java):
         jver = java_version(java)
         badjv = False
         if jinfo:
-            badjv = not jinfo["java.version"].startswith("1.8.0")
-            bitness = jinfo.get("sun.arch.data.model", None)
+            badjv = not jinfo["java.version"].decode("ascii").startswith("1.8.0")
+            bitness = jinfo.get("sun.arch.data.model", None).decode("ascii")
             if bitness and bitness != "64":
                 logger.warn(
                     "You are not using 64-bit java. Things will probably not work."

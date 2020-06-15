@@ -11,34 +11,36 @@ def java_info(java):
     ret = subprocess.run(
         [java, "-XshowSettings:properties", "-version"], capture_output=True
     )
-    out = ret.stderr.decode("utf8").splitlines()
+    out = ret.stderr.splitlines()
     s = 0
     lastkey = None
     D = dict()
     for line in out:
         if s == 0:
-            if line == "Property settings:":
+            if line == b"Property settings:":
                 s = 1
         elif s == 1:
-            if line == "":
+            if line == b"":
                 break
-            if line[:4] != "    ":
+            if line[:4] != b"    ":
                 # e.g openj9 contains multiline values in some fields.
-                L = "    " + line
+                L = b"    " + line
                 nl = True
             else:
                 L = line[4:]
                 nl = False
-            if L[0] == " ":
+            if L[0:1] == b" ":
                 if nl:
-                    D[lastkey] = D[lastkey] + "\n" + L[4:]
+                    D[lastkey] = D[lastkey] + b"\n" + L[4:]
                 else:
                     if isinstance(D[lastkey], list):
                         D[lastkey].append(L[4:])
                     else:
                         D[lastkey] = [D[lastkey], L[4:]]
             else:
-                lastkey, v = map(str.strip, L.split("="))
+                lastkey, v = map(bytes.strip, L.split(b"="))
+                # Take the liberty of assuming the keys are always at least utf8
+                lastkey = lastkey.decode("utf-8")
                 D[lastkey] = v
     if D:
         return D
