@@ -1,13 +1,13 @@
 import os
 import shutil
-import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
 import certifi
 import urllib3
+from tqdm import tqdm
+
 from picomc.env import Env
 from picomc.logging import logger
-from tqdm import tqdm
 
 
 def downloader_urllib3(q, d, workers=8):
