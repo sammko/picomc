@@ -6,7 +6,7 @@ from picomc.account import AccountError
 from picomc.env import Env
 from picomc.instance import Instance
 from picomc.logging import logger
-from picomc.utils import get_filepath, sanitize_name
+from picomc.utils import die, get_filepath, sanitize_name
 
 
 def instance_list():
@@ -80,15 +80,66 @@ def launch(instance_name, account, version_override):
             logger.error("Not launching due to account error: {}".format(e))
 
 
-@instance_cli.command()
+@instance_cli.command("dir")
 @instance_cmd
-def dir(instance_name):
+def _dir(instance_name):
     """Print root directory of instance."""
     if not instance_name:
         print(get_filepath("instances"))
     else:
         # Careful, if configurable instance dirs are added, this breaks.
         print(get_filepath("instances", instance_name))
+
+
+@instance_cli.group("config")
+@instance_cmd
+@click.pass_context
+def config_cli(ctx, instance_name):
+    """Configure an instance."""
+    if Instance.exists(instance_name):
+        ctx.obj = Env.estack.enter_context(Instance(instance_name)).config
+    else:
+        die("No such instance exists.")
+
+
+@config_cli.command("show")
+@click.pass_obj
+def config_show(config):
+    """Print the current config."""
+
+    for k, v in config.items():
+        print("{}: {}".format(k, v))
+
+
+@config_cli.command("set")
+@click.argument("key")
+@click.argument("value")
+@click.pass_obj
+def config_set(config, key, value):
+    """Set a global config value."""
+    config[key] = value
+
+
+@config_cli.command("get")
+@click.argument("key")
+@click.pass_obj
+def config_get(config, key):
+    """Print a global config value."""
+    try:
+        print(config[key])
+    except KeyError:
+        print("No such item.")
+
+
+@config_cli.command("delete")
+@click.argument("key")
+@click.pass_obj
+def config_delete(config, key):
+    """Delete a key from the global config."""
+    try:
+        del config[key]
+    except KeyError:
+        print("No such item.")
 
 
 def register_instance_cli(picomc_cli):
