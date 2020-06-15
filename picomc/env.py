@@ -34,6 +34,15 @@ def get_default_java():
     return "java"
 
 
+def get_default_config():
+    return {
+        "java.path": "java",
+        "java.memory.min": "512M",
+        "java.memory.max": "2G",
+        "java.jvmargs": "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M",
+    }
+
+
 def get_default_root():
     MAP = {
         "linux": lambda: expanduser("~/.local/share/picomc"),

@@ -1,12 +1,7 @@
-import collections
 import hashlib
-import json
 import os
-import subprocess
 import sys
 from functools import partial
-from os.path import expanduser, join
-from types import SimpleNamespace
 
 from picomc.env import get_filepath
 from picomc.javainfo import java_info, java_version
@@ -52,6 +47,31 @@ def file_sha1(filename):
 def die(mesg, code=1):
     logger.error(mesg)
     sys.exit(code)
+
+
+def sanitize_name(name):
+    return name.replace("..", "_").replace("/", "_")
+
+
+def check_directories():
+    """Create directory structure for the application."""
+    dirs = [
+        "",
+        "instances",
+        "versions",
+        "assets",
+        "assets/indexes",
+        "assets/objects",
+        "assets/virtual",
+        "libraries",
+    ]
+    for d in dirs:
+        path = get_filepath(*d.split("/"))
+        try:
+            os.makedirs(path)
+            logger.debug("Created dir: {}".format(path))
+        except FileExistsError:
+            pass
 
 
 def assert_java(java):
