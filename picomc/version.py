@@ -495,7 +495,7 @@ def jar(which, output):
         output = "{}_{}.{}".format(g_vobj.version_name, which, ext)
     if os.path.exists(output):
         die("Refusing to overwrite {}".format(output))
-    logger.info("Hash should be {}".format(sha1))
+    logger.info("Hash (sha1) should be {}".format(sha1))
     logger.info("Downloading the {} file and saving to {}".format(which, output))
     urllib.request.urlretrieve(dlspec["url"], output)
     if file_sha1(output) != sha1:
