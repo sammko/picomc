@@ -20,7 +20,10 @@ class Env:
 
 
 def get_filepath(*f):
-    return os.path.join(Env.app_root, *f)
+    root = os.path.normpath(Env.app_root)
+    res = os.path.normpath(os.path.join(root, *f))
+    assert os.path.commonpath([root, res]) == root
+    return res
 
 
 def get_default_java():
