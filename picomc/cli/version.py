@@ -1,3 +1,4 @@
+import functools
 import os
 import posixpath
 import urllib.parse
@@ -9,25 +10,30 @@ from picomc.logging import logger
 from picomc.utils import die, file_sha1
 from picomc.version import VersionType
 
-g_vobj = None
+
+def version_cmd(fn):
+    @click.argument("version_name")
+    @functools.wraps(fn)
+    def inner(*args, version_name, **kwargs):
+        return fn(*args, version=Env.vm.get_version(version_name), **kwargs)
+
+    return inner
 
 
 @click.group()
-@click.argument("version_name")
-def version_cli(version_name):
-    """Operate on local Minecraft versions."""
-    global g_vobj
-    g_vobj = Env.vm.get_version(version_name)
+def version_cli():
+    """Manage Minecraft versions."""
+    pass
 
 
-@click.command()
+@version_cli.command()
 @click.option("--release", is_flag=True, default=False)
 @click.option("--snapshot", is_flag=True, default=False)
 @click.option("--alpha", is_flag=True, default=False)
 @click.option("--beta", is_flag=True, default=False)
 @click.option("--local", is_flag=True, default=False)
 @click.option("--all", is_flag=True, default=False)
-def list_versions(release, snapshot, alpha, beta, local, all):
+def list(release, snapshot, alpha, beta, local, all):
     """List available Minecraft versions."""
     if all:
         release = snapshot = alpha = beta = local = True
@@ -42,24 +48,26 @@ def list_versions(release, snapshot, alpha, beta, local, all):
 
 
 @version_cli.command()
-def prepare():
+@version_cmd
+def prepare(version):
     """Download required files for the version."""
-    g_vobj.prepare()
+    version.prepare()
 
 
 @version_cli.command()
+@version_cmd
 @click.argument("which", default="client")
 @click.option("--output", default=None)
-def jar(which, output):
+def jar(version, which, output):
     """Download the file and save."""
-    dlspec = g_vobj.vspec.downloads.get(which, None)
+    dlspec = version.vspec.downloads.get(which, None)
     if not dlspec:
-        die("No such dlspec exists for version {}".format(g_vobj.version_name))
+        die("No such dlspec exists for version {}".format(version.version_name))
     url = dlspec["url"]
     sha1 = dlspec["sha1"]
     ext = posixpath.basename(urllib.parse.urlsplit(url).path).split(".")[-1]
     if output is None:
-        output = "{}_{}.{}".format(g_vobj.version_name, which, ext)
+        output = "{}_{}.{}".format(version.version_name, which, ext)
     if os.path.exists(output):
         die("Refusing to overwrite {}".format(output))
     logger.info("Hash (sha1) should be {}".format(sha1))
@@ -71,4 +79,3 @@ def jar(which, output):
 
 def register_version_cli(root_cli):
     root_cli.add_command(version_cli, "version")
-    root_cli.add_command(list_versions)
