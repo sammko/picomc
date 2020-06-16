@@ -118,7 +118,7 @@ def config_cli(ctx, instance_name):
 @config_cli.command("show")
 @click.pass_obj
 def config_show(config):
-    """Print the current config."""
+    """Print the current instance config."""
 
     for k, v in config.items():
         print("{}: {}".format(k, v))
@@ -129,7 +129,7 @@ def config_show(config):
 @click.argument("value")
 @click.pass_obj
 def config_set(config, key, value):
-    """Set a global config value."""
+    """Set an instance config value."""
     config[key] = value
 
 
@@ -137,7 +137,7 @@ def config_set(config, key, value):
 @click.argument("key")
 @click.pass_obj
 def config_get(config, key):
-    """Print a global config value."""
+    """Print an instance config value."""
     try:
         print(config[key])
     except KeyError:
@@ -148,7 +148,7 @@ def config_get(config, key):
 @click.argument("key")
 @click.pass_obj
 def config_delete(config, key):
-    """Delete a key from the global config."""
+    """Delete a key from the instance config."""
     try:
         del config[key]
     except KeyError:
