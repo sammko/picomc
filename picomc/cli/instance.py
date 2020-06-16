@@ -91,6 +91,19 @@ def _dir(instance_name):
         print(get_filepath("instances", instance_name))
 
 
+@instance_cli.command("rename")
+@instance_cmd
+@click.argument("new_name")
+def rename(instance_name, new_name):
+    new_name = sanitize_name(new_name)
+    if Instance.exists(instance_name):
+        if Instance.exists(new_name):
+            die("Instance with target name already exists.")
+        Instance.rename(instance_name, new_name)
+    else:
+        die("No such instance exists.")
+
+
 @instance_cli.group("config")
 @instance_cmd
 @click.pass_context

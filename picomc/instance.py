@@ -200,3 +200,11 @@ class Instance:
     @staticmethod
     def delete(name):
         shutil.rmtree(get_filepath("instances", name))
+
+    @staticmethod
+    def rename(old, new):
+        oldpath = get_filepath("instances", old)
+        newpath = get_filepath("instances", new)
+        assert not os.path.exists(newpath)
+        assert os.path.exists(oldpath)
+        shutil.move(oldpath, newpath)
