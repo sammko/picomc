@@ -5,16 +5,123 @@ import posixpath
 import shutil
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from functools import reduce
 from platform import architecture
 from string import Template
 
 import requests
-
 from picomc.downloader import DownloadQueue
 from picomc.env import Env, get_filepath
 from picomc.logging import logger
 from picomc.utils import cached_property, die, file_sha1, file_verify_relative
+
+
+@dataclass
+class LibraryArtifact:
+    url: str
+    path: str
+    sha1: str
+    size: int
+    filename: str
+
+    @classmethod
+    def from_json(cls, obj):
+        return cls(
+            url=obj["url"],
+            path=obj["path"],
+            sha1=obj["sha1"],
+            size=obj["size"],
+            filename=None,
+        )
+
+
+class Library:
+    MOJANG_BASE_URL = "https://libraries.minecraft.net/"
+
+    def __init__(self, json_lib):
+        self.json_lib = json_lib
+        self._populate()
+
+    def _populate(self):
+        js = self.json_lib
+        self.libname = js["name"]
+        self.is_native = "natives" in js
+        self.base_url = js.get("url", Library.MOJANG_BASE_URL)
+
+        self.available = True
+
+        self.native_suffix = ""
+        if self.is_native:
+            try:
+                classifier_tmpl = self.json_lib["natives"][Env.platform]
+                arch = architecture()[0][:2]
+                self.native_classifier = Template(classifier_tmpl).substitute(arch=arch)
+                self.native_suffix = "-" + self.native_classifier
+            except KeyError:
+                logger.warn(
+                    f"Native {self.libname} is not available for current platform {Env.platform}."
+                )
+                self.native_classifier = None
+                self.available = False
+                return
+
+        self.virt_artifact = self.make_virtual_artifact()
+        self.artifact = self.resolve_artifact()
+
+        # Just use filename and path derived from the name.
+        self.filename = self.virt_artifact.url
+        self.path = self.virt_artifact.path
+
+        # Actual fs path
+        self.relpath = os.path.join(*self.path.split("/"))
+
+        if self.artifact:
+            final_art = self.artifact
+
+            # Sanity check
+            assert self.virt_artifact.path == self.artifact.path
+        else:
+            final_art = self.virt_artifact
+
+        self.url = final_art.url
+        self.sha1 = final_art.sha1
+        self.size = final_art.size
+
+    def make_virtual_artifact(self):
+        # I don't know where the *va part comes from, it was already implemented
+        # before a refactor, unfortunately the reason was not documented.
+        # Currently I don't have a version in my versions directory which
+        # utilizes that.
+        # I am leaving it implemented, as there probably was motivation to do it.
+        group, art_id, version, *va = self.libname.split(":")
+        group = group.replace(".", "/")
+        v2 = "-".join([version] + va)
+
+        filename = f"{art_id}-{v2}{self.native_suffix}.jar"
+        path = f"{group}/{art_id}/{version}/{filename}"
+        url = urllib.parse.urljoin(self.base_url, path)
+
+        return LibraryArtifact(
+            url=url, path=path, sha1=None, size=None, filename=filename
+        )
+
+    def resolve_artifact(self):
+        if self.is_native:
+            if self.native_classifier is None:
+                # Native not available for current platform
+                return None
+            else:
+                art = self.json_lib["downloads"]["classifiers"][self.native_classifier]
+                return LibraryArtifact.from_json(art)
+        else:
+            try:
+                return LibraryArtifact.from_json(self.json_lib["downloads"]["artifact"])
+            except KeyError:
+                return None
+
+    def get_abspath(self, library_root):
+        return os.path.join(library_root, self.relpath)
 
 
 class VersionType:
@@ -215,75 +322,14 @@ class Version:
                 continue
             yield lib
 
-    @staticmethod
-    def _resolve_library(lib):
-        # TODO
-        # For some reason I don't remember, we are constructing the paths
-        # to library downloads manually instead of using the url and hash
-        # provided in the vspec. This should probably be reworked and hashes
-        # should be checked instead of just the filenames.
-        #
-        # The reason is that the downloads tag is only present in vanilla vspec,
-        # forge, optifine, fabric don't provide it.
-        suffix = ""
-        sha = None
-        if "natives" in lib:
-            if Env.platform in lib["natives"]:
-                suffix = "-" + lib["natives"][Env.platform]
-                suffix = Template(suffix).substitute(arch=architecture()[0][:2])
-                try:
-                    sha = lib["downloads"]["classifiers"]["natives-" + Env.platform][
-                        "sha1"
-                    ]
-                except KeyError:
-                    pass
-            else:
-                logger.warn(
-                    (
-                        "Native library ({}) not available"
-                        "for current platform ({}). Ignoring."
-                    ).format(lib["name"], Env.platform)
-                )
-                return None
-        else:
-            try:
-                sha = lib["downloads"]["artifact"]["sha1"]
-            except KeyError:
-                pass
-
-        if sha is None:
-            logger.debug("Library {} has no sha in vspec".format(lib["name"]))
-
-        fullname = lib["name"]
-        url_base = lib.get("url", Version.LIBRARIES_URL)
-        p, n, v, *va = fullname.split(":")
-        v2 = "-".join([v] + va)
-
-        # TODO this is fugly
-        class LibPaths:
-            package = p.replace(".", "/")
-            name = n
-            version = v
-            ext_version = v2
-            filename = "{}-{}{}.jar".format(name, ext_version, suffix)
-            fullpath = "{}/{}/{}/{}".format(package, name, version, filename)
-            url = urllib.parse.urljoin(url_base, fullpath)
-            basedir = get_filepath("libraries")
-            local_relpath = os.path.join(*fullpath.split("/"))
-            local_abspath = os.path.join(basedir, local_relpath)
-
-        LibPaths.sha = sha
-
-        return LibPaths
-
     def lib_filenames(self, natives=False):
         for lib in self._libraries(natives):
             if not natives and "natives" in lib:
                 continue
-            paths = self._resolve_library(lib)
-            if not paths:
+            library = Library(lib)
+            if not library.available:
                 continue
-            yield paths.local_abspath
+            yield library.get_abspath(get_filepath("libraries"))
 
     def download_jarfile(self, force=False):
         """Checks existence and hash of cached jar. Downloads a new one
@@ -311,18 +357,20 @@ class Version:
         logger.info("Checking libraries.")
         q = DownloadQueue()
         for lib in self._libraries():
-            paths = self._resolve_library(lib)
-            if not paths:
+            library = Library(lib)
+            if not library.available:
                 continue
+            basedir = get_filepath("libraries")
+            abspath = library.get_abspath(basedir)
             ok = (
-                os.path.isfile(paths.local_abspath)
-                and os.path.getsize(paths.local_abspath) > 0
+                os.path.isfile(abspath)
+                and os.path.getsize(abspath) > 0
             )
-            if paths.sha is not None:
-                ok = ok and file_sha1(paths.local_abspath) == paths.sha
+            if library.sha1 is not None:
+                ok = ok and file_sha1(abspath) == library.sha1
             if force or not ok:
-                q.add(paths.url, paths.local_relpath)
-        q.download(paths.basedir)
+                q.add(library.url, library.relpath)
+        q.download(basedir)
 
     def _populate_virtual_assets(self, where):
         for name, obj in self.raw_asset_index["objects"].items():
