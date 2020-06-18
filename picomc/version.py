@@ -362,15 +362,15 @@ class Version:
                 continue
             basedir = get_filepath("libraries")
             abspath = library.get_abspath(basedir)
-            ok = (
-                os.path.isfile(abspath)
-                and os.path.getsize(abspath) > 0
-            )
+            ok = os.path.isfile(abspath) and os.path.getsize(abspath) > 0
             if library.sha1 is not None:
                 ok = ok and file_sha1(abspath) == library.sha1
             if force or not ok:
                 q.add(library.url, library.relpath)
-        q.download(basedir)
+        if not q.download(basedir):
+            logger.error(
+                "Some libraries failed to download. If they are part of a non-vanilla profile, the original installer may need to be used."
+            )
 
     def _populate_virtual_assets(self, where):
         for name, obj in self.raw_asset_index["objects"].items():
