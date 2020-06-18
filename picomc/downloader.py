@@ -68,6 +68,6 @@ class DownloadQueue:
         if not self.q:
             return True
         else:
-            logger.info("Using parallel urllib3 downloader.")
+            logger.debug("Using parallel urllib3 downloader.")
             downloader = downloader_urllib3
         return downloader(self.q, d)

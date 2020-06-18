@@ -367,6 +367,8 @@ class Version:
                 ok = ok and file_sha1(abspath) == library.sha1
             if force or not ok:
                 q.add(library.url, library.relpath)
+        if len(q) > 0:
+            logger.info("Downloading {} libraries.".format(len(q)))
         if not q.download(basedir):
             logger.error(
                 "Some libraries failed to download. If they are part of a non-vanilla profile, the original installer may need to be used."
@@ -411,8 +413,10 @@ class Version:
             url = urllib.parse.urljoin(self.ASSETS_URL, posixpath.join(sha[0:2], sha))
             q.add(url, path)
 
-        logger.info("Downloading {} assets. This could take a while.".format(len(q)))
-        q.download(Env.app_root)
+        if len(q) > 0:
+            logger.info("Downloading {} assets.".format(len(q)))
+        if not q.download(Env.app_root):
+            logger.error("Some assets failed to download.")
 
         if is_virtual:
             logger.info("Copying virtual assets")
@@ -439,10 +443,10 @@ class VersionManager:
         """Takes a metaversion and resolves to a version."""
         if v == "latest":
             v = self.manifest["latest"]["release"]
-            logger.info("Resolved latest -> {}".format(v))
+            logger.debug("Resolved latest -> {}".format(v))
         elif v == "snapshot":
             v = self.manifest["latest"]["snapshot"]
-            logger.info("Resolved snapshot -> {}".format(v))
+            logger.debug("Resolved snapshot -> {}".format(v))
         return v
 
     @cached_property

@@ -119,8 +119,8 @@ class Instance:
 
     def launch(self, account, version=None):
         vobj = Env.vm.get_version(version or self.config["version"])
-        logger.info("Launching instance {}!".format(self.name))
-        logger.info("Using minecraft version: {}".format(vobj.version_name))
+        logger.info("Launching instance: {}".format(self.name))
+        logger.info("Using version: {}".format(vobj.version_name))
         logger.info("Using account: {}".format(account))
         gamedir = get_filepath("instances", self.name, "minecraft")
         os.makedirs(gamedir, exist_ok=True)
