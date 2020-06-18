@@ -16,7 +16,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     packages=find_packages(),
-    install_requires=["click", "requests", "urllib3", "certifi", "tqdm"],
+    install_requires=["click", "requests", "urllib3", "certifi", "tqdm", "coloredlogs"],
     python_requires=">=3",
     entry_points={"console_scripts": ["picomc = picomc:main"]},
 )
