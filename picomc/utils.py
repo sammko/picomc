@@ -4,7 +4,7 @@ import sys
 from functools import partial
 
 from picomc.env import get_filepath
-from picomc.javainfo import java_info, java_version
+from picomc.javainfo import get_java_info, get_java_version
 from picomc.logging import logger
 
 
@@ -76,8 +76,8 @@ def check_directories():
 
 def assert_java(java):
     try:
-        jinfo = java_info(java)
-        jver = java_version(java)
+        jinfo = get_java_info(java)
+        jver = get_java_version(java)
         badjv = False
         if jinfo:
             badjv = not jinfo["java.version"].decode("ascii").startswith("1.8.0")

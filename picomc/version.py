@@ -13,7 +13,9 @@ from string import Template
 import requests
 from picomc.downloader import DownloadQueue
 from picomc.env import Env, get_filepath
+from picomc.javainfo import get_java_info
 from picomc.logging import logger
+from picomc.rules import match_ruleset
 from picomc.utils import cached_property, die, file_sha1, file_verify_relative
 
 
@@ -234,6 +236,7 @@ class Version:
 
     def __init__(self, version_name):
         self.version_name = version_name
+        self._libraries = dict()
 
     @cached_property
     def jarfile(self):
@@ -304,32 +307,19 @@ class Version:
         except requests.ConnectionError:
             die("Failed to retrieve asset index.")
 
-    def _libraries(self, natives_only=False):
-        # The rule matching in this function could be cached,
-        # not sure if worth it.
-        for lib in self.vspec.libraries:
-            rules = lib.get("rules", [])
-            allow = "rules" not in lib
-            for rule in rules:
-                osmatch = True
-                if "os" in rule:
-                    osmatch = rule["os"]["name"] == Env.platform
-                if osmatch:
-                    allow = rule["action"] == "allow"
-            if not allow:
-                continue
-            if natives_only and "natives" not in lib:
-                continue
-            yield lib
-
-    def lib_filenames(self, natives=False):
-        for lib in self._libraries(natives):
-            if not natives and "natives" in lib:
-                continue
-            library = Library(lib)
-            if not library.available:
-                continue
-            yield library.get_abspath(get_filepath("libraries"))
+    def get_libraries(self, java_info):
+        key = java_info.get("java.home", None)
+        if key and key in self._libraries:
+            return self._libraries[key]
+        else:
+            libs = []
+            for lib in self.vspec.libraries:
+                if "rules" in lib and not match_ruleset(lib["rules"], java_info):
+                    continue
+                libs.append(Library(lib))
+            if key:
+                self._libraries[key] = libs
+            return libs
 
     def download_jarfile(self, force=False):
         """Checks existence and hash of cached jar. Downloads a new one
@@ -352,12 +342,11 @@ class Version:
             logger.info("Downloading jar ({}).".format(self.version_name))
             urllib.request.urlretrieve(dlspec["url"], self.jarfile)
 
-    def download_libraries(self, force=False):
+    def download_libraries(self, java_info, force=False):
         """Downloads missing libraries."""
         logger.info("Checking libraries.")
         q = DownloadQueue()
-        for lib in self._libraries():
-            library = Library(lib)
+        for library in self.get_libraries(java_info):
             if not library.available:
                 continue
             basedir = get_filepath("libraries")
@@ -424,13 +413,15 @@ class Version:
             logger.debug("Virtual asset path: {}".format(where))
             self._populate_virtual_assets(where)
 
-    def prepare(self):
+    def prepare(self, java_info=None):
+        if not java_info:
+            java_info = get_java_info(Env.gconf.get("java.path"))
         self.download_jarfile()
-        self.download_libraries()
+        self.download_libraries(java_info)
         self.download_assets()
 
-    def prepare_launch(self, gamedir):
-        self.prepare()
+    def prepare_launch(self, gamedir, java_info):
+        self.prepare(java_info)
         self.prepare_assets_launch(gamedir)
 
 

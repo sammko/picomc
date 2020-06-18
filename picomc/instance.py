@@ -1,28 +1,28 @@
 import os
-import re
 import shutil
 import subprocess
 import zipfile
-from platform import architecture
 from string import Template
 
 import picomc
 from picomc.config import Config
 from picomc.env import Env, get_filepath
 from picomc.logging import logger
+from picomc.rules import match_ruleset
 from picomc.utils import assert_java, join_classpath, sanitize_name
 
 
 class NativesExtractor:
-    def __init__(self, instance, vobj):
+    def __init__(self, instance, natives):
         self.instance = instance
-        self.vobj = vobj
+        self.natives = natives
         self.ndir = get_filepath("instances", instance.name, "natives")
 
     def __enter__(self):
         os.makedirs(self.ndir, exist_ok=True)
         dedup = set()
-        for fullpath in self.vobj.lib_filenames(natives=True):
+        for library in self.natives:
+            fullpath = library.get_abspath(get_filepath("libraries"))
             if fullpath in dedup:
                 logger.debug(
                     "Skipping duplicate natives archive: " "{}".format(fullpath)
@@ -40,52 +40,14 @@ class NativesExtractor:
 
 
 def process_arguments(arguments_dict, java_info):
-    def get_os_info():
-        version = java_info.get("os.version", None).decode("ascii")
-        arch = java_info.get("os.arch", None).decode("ascii")
-        if not arch:
-            arch = {"32": "x86"}.get(architecture()[0][:2], "?")
-        return version, arch
-
-    def match_rule(rule):
-        # This launcher currently does not support any of the extended
-        # features, which currently include at least:
-        #   - is_demo_user
-        #   - has_custom_resolution
-        # It is not clear whether an `os` and `features` matcher may
-        # be present simultaneously - assuming not.
-        if "features" in rule:
-            return False
-
-        if "os" in rule:
-            os_version, os_arch = get_os_info()
-
-            osmatch = True
-            if "name" in rule["os"]:
-                osmatch = osmatch and rule["os"]["name"] == Env.platform
-            if "arch" in rule["os"]:
-                osmatch = osmatch and rule["os"]["arch"] == os_arch
-            if "version" in rule["os"]:
-                osmatch = osmatch and re.match(rule["os"]["version"], os_version)
-            return osmatch
-
-        logger.warn("Not matching unknown rule {}".format(rule.keys()))
-        return False
-
     def subproc(obj):
         args = []
         for a in obj:
             if isinstance(a, str):
                 args.append(a)
             else:
-                if "rules" in a:
-                    sat = False
-                    for rule in a["rules"]:
-                        m = match_rule(rule)
-                        if m:
-                            sat = rule["action"] == "allow"
-                    if not sat:
-                        continue
+                if "rules" in a and not match_ruleset(a["rules"], java_info):
+                    continue
                 if isinstance(a["value"], list):
                     args.extend(a["value"])
                 elif isinstance(a["value"], str):
@@ -120,25 +82,35 @@ class Instance:
     def launch(self, account, version=None):
         vobj = Env.vm.get_version(version or self.config["version"])
         logger.info("Launching instance: {}".format(self.name))
-        logger.info("Using version: {}".format(vobj.version_name))
+        if vobj.version_name == self.config["version"]:
+            logger.info("Using version: {}".format(vobj.version_name))
+        else:
+            logger.info(
+                "Using version: {} -> {}".format(
+                    self.config["version"], vobj.version_name
+                )
+            )
         logger.info("Using account: {}".format(account))
         gamedir = get_filepath("instances", self.name, "minecraft")
         os.makedirs(gamedir, exist_ok=True)
-        vobj.prepare_launch(gamedir)
+
+        java = self.get_java()
+        java_info = assert_java(java)
+
+        libraries = vobj.get_libraries(java_info)
+        vobj.prepare_launch(gamedir, java_info)
         # Do this here so that configs are not needlessly overwritten after
         # the game quits
         Env.commit_manager.commit_all_dirty()
-        with NativesExtractor(self, vobj):
-            self._exec_mc(account, vobj, gamedir)
+        with NativesExtractor(self, filter(lambda lib: lib.is_native, libraries)):
+            self._exec_mc(account, vobj, java, java_info, gamedir, libraries)
 
-    def _exec_mc(self, account, v, gamedir):
-        java = [self.get_java()]
-        java_info = assert_java(java[0])
-
+    def _exec_mc(self, account, v, java, java_info, gamedir, libraries):
+        java = [java]
         java.append("-Xms{}".format(self.config["java.memory.min"]))
         java.append("-Xmx{}".format(self.config["java.memory.max"]))
         java += self.config["java.jvmargs"].split()
-        libs = list(v.lib_filenames())
+        libs = [lib.get_abspath(get_filepath("libraries")) for lib in libraries]
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
 

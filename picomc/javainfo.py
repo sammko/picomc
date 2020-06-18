@@ -1,7 +1,7 @@
 import subprocess
 
 
-def java_info(java):
+def get_java_info(java):
     """Parse the output of `java -XshowSettings:properties -version` and return
     it in a dict."""
     # This while thing is fragile, a better idea is to write a small java program
@@ -48,6 +48,6 @@ def java_info(java):
         return None
 
 
-def java_version(java):
+def get_java_version(java):
     ret = subprocess.run([java, "-version"], capture_output=True)
     return ret.stderr.decode("utf8").splitlines()[0]
