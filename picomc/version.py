@@ -1,5 +1,4 @@
 import json
-import operator
 import os
 import posixpath
 import shutil
@@ -225,7 +224,9 @@ class VersionSpec:
     arguments = CachedVspecAttr("arguments", mode=MODE_REDUCE, reduce_func=argumentadd)
     mainClass = CachedVspecAttr("mainClass")
     assetIndex = CachedVspecAttr("assetIndex")
-    libraries = CachedVspecAttr("libraries", mode=MODE_REDUCE, reduce_func=operator.add)
+    libraries = CachedVspecAttr(
+        "libraries", mode=MODE_REDUCE, reduce_func=lambda x, y: y + x
+    )
     jar = CachedVspecAttr("jar", default=lambda vobj: vobj.version_name)
     downloads = CachedVspecAttr("downloads", default=lambda vobj: {})
 
