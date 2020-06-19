@@ -4,7 +4,6 @@ import posixpath
 import urllib.parse
 
 import click
-
 from picomc.env import Env
 from picomc.logging import logger
 from picomc.utils import die, file_sha1
@@ -44,7 +43,9 @@ def list(release, snapshot, alpha, beta, local, all):
         )
         local = True
     T = VersionType.create(release, snapshot, alpha, beta)
-    print("\n".join(Env.vm.version_list(vtype=T, local=local)))
+    versions = Env.vm.version_list(vtype=T, local=local)
+    versions.sort()
+    print("\n".join(versions))
 
 
 @version_cli.command()
