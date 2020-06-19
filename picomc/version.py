@@ -355,6 +355,11 @@ class Version:
             ok = os.path.isfile(abspath) and os.path.getsize(abspath) > 0
             if library.sha1 is not None:
                 ok = ok and file_sha1(abspath) == library.sha1
+            if not ok and not library.url:
+                logger.error(
+                    f"Library {library.libname} is missing or corrupt and has no download url."
+                )
+                continue
             if force or not ok:
                 q.add(library.url, library.relpath)
         if len(q) > 0:
