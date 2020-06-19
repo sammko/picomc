@@ -221,8 +221,7 @@ class Version:
         if not dlspec:
             logger.debug("jarfile not in dlspec, skipping hash check.")
             if not os.path.exists(self.jarfile):
-                logger.error("Jarfile does not exist and can not be downloaded.")
-                raise RuntimeError()
+                die("Jarfile does not exist and can not be downloaded.")
             return
 
         logger.debug("Checking jarfile.")
