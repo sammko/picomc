@@ -367,7 +367,7 @@ class VersionManager:
         if local:
             import os
 
-            r += (
+            r += sorted(
                 "{} [local]".format(name)
                 for name in os.listdir(get_filepath("versions"))
                 if os.path.isdir(get_filepath("versions", name))

@@ -44,7 +44,6 @@ def list(release, snapshot, alpha, beta, local, all):
         local = True
     T = VersionType.create(release, snapshot, alpha, beta)
     versions = Env.vm.version_list(vtype=T, local=local)
-    versions.sort()
     print("\n".join(versions))
 
 
