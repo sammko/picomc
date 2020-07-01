@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import zipfile
+from operator import attrgetter
 from string import Template
 
 import picomc
@@ -18,7 +19,10 @@ class NativesExtractor:
         self.natives = natives
         self.ndir = get_filepath("instances", instance.name, "natives")
 
-    def __enter__(self):
+    def get_natives_path(self):
+        return self.ndir
+
+    def extract(self):
         os.makedirs(self.ndir, exist_ok=True)
         dedup = set()
         for library in self.natives:
@@ -33,6 +37,9 @@ class NativesExtractor:
             with zipfile.ZipFile(fullpath) as zf:
                 # TODO take exclude into account
                 zf.extractall(path=self.ndir)
+
+    def __enter__(self):
+        self.extract()
 
     def __exit__(self, ext_type, exc_value, traceback):
         logger.debug("Cleaning up natives.")
@@ -102,8 +109,17 @@ class Instance:
         # Do this here so that configs are not needlessly overwritten after
         # the game quits
         Env.commit_manager.commit_all_dirty()
-        with NativesExtractor(self, filter(lambda lib: lib.is_native, libraries)):
+        with NativesExtractor(self, filter(attrgetter("is_native"), libraries)):
             self._exec_mc(account, vobj, java, java_info, gamedir, libraries)
+
+    def extract_natives(self):
+        vobj = Env.vm.get_version(self.config["version"])
+        java_info = assert_java(self.get_java())
+        libs = vobj.get_libraries(java_info)
+        ne = NativesExtractor(self, filter(attrgetter("is_native"), libs))
+        ne.extract()
+        logger.info("Extracted natives to {}".format(ne.get_natives_path()))
+
 
     def _exec_mc(self, account, v, java, java_info, gamedir, libraries):
         java = [java]

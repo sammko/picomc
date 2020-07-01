@@ -79,6 +79,15 @@ def launch(instance_name, account, version_override):
         except AccountError as e:
             logger.error("Not launching due to account error: {}".format(e))
 
+@instance_cli.command("natives")
+@instance_cmd
+def extract_natives(instance_name):
+    """Extract natives and leave them on disk"""
+    if not Instance.exists(instance_name):
+        die("No such instance exists.")
+    with Instance(instance_name) as inst:
+        inst.extract_natives()
+
 
 @instance_cli.command("dir")
 @instance_cmd
