@@ -9,17 +9,15 @@ from picomc.logging import logger
 from tqdm import tqdm
 
 
-def downloader_urllib3(q, d, workers=8):
+def downloader_urllib3(q, basedir, workers=8):
     http_pool = urllib3.PoolManager(cert_reqs="CERT_REQUIRED", ca_certs=certifi.where())
     total = len(q)
 
     errors = []
 
-    def dl(i, url, outs):
-        aouts = list(os.path.join(d, o) for o in outs)
-        for o in aouts:
-            os.makedirs(os.path.dirname(o), exist_ok=True)
-        pout, *eouts = aouts
+    def dl(i, url, reldest):
+        dest = os.path.join(basedir, reldest)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
         logger.debug("Downloading [{}/{}]: {}".format(i, total, url))
         resp = http_pool.request("GET", url, preload_content=False)
         if resp.status != 200:
@@ -28,11 +26,9 @@ def downloader_urllib3(q, d, workers=8):
             )
             resp.release_conn()
             return
-        with open(pout, "wb") as poutfd:
-            shutil.copyfileobj(resp, poutfd)
+        with open(dest, "wb") as destfd:
+            shutil.copyfileobj(resp, destfd)
         resp.release_conn()
-        for o in eouts:
-            shutil.copy(pout, o)
 
     disable_progressbar = Env.debug
 
@@ -44,8 +40,8 @@ def downloader_urllib3(q, d, workers=8):
         def done(fut):
             tq.update()
 
-        for i, (url, outs) in enumerate(q, start=1):
-            fut = tpe.submit(dl, i, url, outs)
+        for i, (url, dest) in enumerate(q, start=1):
+            fut = tpe.submit(dl, i, url, dest)
             fut.add_done_callback(done)
 
     for error in errors:
@@ -58,7 +54,7 @@ class DownloadQueue:
     def __init__(self):
         self.q = []
 
-    def add(self, url, *filename):
+    def add(self, url, filename):
         self.q.append((url, filename))
 
     def __len__(self):
