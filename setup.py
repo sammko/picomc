@@ -1,14 +1,15 @@
-import re
-
 from setuptools import find_packages, setup
 
-with open("picomc/__init__.py", encoding="utf8") as f:
-    version = re.search(r'__version__ = "(.*?)"', f.read()).group(1)
+from distversion import make_version_cmdclass
 
+PKG_NAME = "picomc"
+
+version, cmdclass = make_version_cmdclass(PKG_NAME)
 
 setup(
-    name="picomc",
+    name=PKG_NAME,
     version=version,
+    cmdclass=cmdclass,
     description="A very small CLI Minecraft launcher.",
     url="https://git.sammserver.com/sammko/picomc",
     author="Samuel Čavoj",
