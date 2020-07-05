@@ -7,7 +7,6 @@ import urllib.request
 from functools import reduce
 
 import requests
-
 from picomc.downloader import DownloadQueue
 from picomc.env import Env, file_verify_relative, get_filepath
 from picomc.javainfo import get_java_info
@@ -216,15 +215,15 @@ class Version:
                 self._libraries[key] = libs
             return libs
 
-    def download_jarfile(self, force=False):
-        """Checks existence and hash of cached jar. Downloads a new one
-        if either condition is violated."""
+    def get_jarfile_dl(self, force=False):
+        """Checks existence and hash of cached jar. Returns None if ok, otherwise
+        returns download url"""
         logger.debug("Attempting to use jarfile: {}".format(self.jarfile))
         dlspec = self.vspec.downloads.get("client", None)
-        if not dlspec:
-            logger.debug("jarfile not in dlspec, skipping hash check.")
+        if dlspec is None:
+            logger.debug("jarfile dlspec not availble, skipping hash check.")
             if not os.path.exists(self.jarfile):
-                die("Jarfile does not exist and can not be downloaded.")
+                die("jarfile does not exist and can not be downloaded.")
             return
 
         logger.debug("Checking jarfile.")
@@ -233,8 +232,12 @@ class Version:
             or not os.path.exists(self.jarfile)
             or file_sha1(self.jarfile) != dlspec["sha1"]
         ):
-            logger.info("Downloading jar ({}).".format(self.version_name))
-            urllib.request.urlretrieve(dlspec["url"], self.jarfile)
+            logger.info(
+                "Jar file ({}) will be downloaded with libraries.".format(
+                    self.version_name
+                )
+            )
+            return dlspec["url"]
 
     def download_libraries(self, java_info, force=False):
         """Downloads missing libraries."""
@@ -254,10 +257,13 @@ class Version:
                 )
                 continue
             if force or not ok:
-                q.add(library.url, library.relpath)
+                q.add(library.url, library.get_abspath(basedir))
+        jarurl = self.get_jarfile_dl()
+        if jarurl is not None:
+            q.add(jarurl, self.jarfile)
         if len(q) > 0:
             logger.info("Downloading {} libraries.".format(len(q)))
-        if not q.download(basedir):
+        if not q.download():
             logger.error(
                 "Some libraries failed to download. If they are part of a non-vanilla profile, the original installer may need to be used."
             )
@@ -299,11 +305,11 @@ class Version:
             if file_verify_relative(path, sha):
                 continue
             url = urllib.parse.urljoin(self.ASSETS_URL, posixpath.join(sha[0:2], sha))
-            q.add(url, path)
+            q.add(url, os.path.join(Env.app_root, path))
 
         if len(q) > 0:
             logger.info("Downloading {} assets.".format(len(q)))
-        if not q.download(Env.app_root):
+        if not q.download():
             logger.error("Some assets failed to download.")
 
         if is_virtual:
@@ -315,7 +321,6 @@ class Version:
     def prepare(self, java_info=None):
         if not java_info:
             java_info = get_java_info(Env.gconf.get("java.path"))
-        self.download_jarfile()
         self.download_libraries(java_info)
         self.download_assets()
 

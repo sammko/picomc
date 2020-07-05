@@ -9,14 +9,13 @@ from picomc.logging import logger
 from tqdm import tqdm
 
 
-def downloader_urllib3(q, basedir, workers=8):
+def downloader_urllib3(q, workers=8):
     http_pool = urllib3.PoolManager(cert_reqs="CERT_REQUIRED", ca_certs=certifi.where())
     total = len(q)
 
     errors = []
 
-    def dl(i, url, reldest):
-        dest = os.path.join(basedir, reldest)
+    def dl(i, url, dest):
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         logger.debug("Downloading [{}/{}]: {}".format(i, total, url))
         resp = http_pool.request("GET", url, preload_content=False)
@@ -60,10 +59,10 @@ class DownloadQueue:
     def __len__(self):
         return len(self.q)
 
-    def download(self, d):
+    def download(self):
         if not self.q:
             return True
         else:
             logger.debug("Using parallel urllib3 downloader.")
             downloader = downloader_urllib3
-        return downloader(self.q, d)
+        return downloader(self.q)
