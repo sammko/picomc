@@ -1,8 +1,8 @@
 import json
 import os
 
+from picomc.env import get_filepath
 from picomc.logging import logger
-from picomc.utils import get_filepath
 
 
 class CommitManager:

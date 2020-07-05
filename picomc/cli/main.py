@@ -7,10 +7,15 @@ import picomc
 import picomc.logging
 from picomc.account import AccountError, AccountManager, OfflineAccount, OnlineAccount
 from picomc.config import CommitManager, Config
-from picomc.env import Env, get_default_config, get_default_root
+from picomc.env import (
+    Env,
+    check_directories,
+    get_default_config,
+    get_default_root,
+    write_profiles_dummy,
+)
 from picomc.instance import Instance
 from picomc.logging import logger
-from picomc.utils import check_directories, write_profiles_dummy
 from picomc.version import VersionManager
 
 

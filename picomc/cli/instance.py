@@ -3,10 +3,10 @@ import functools
 import click
 
 from picomc.account import AccountError
-from picomc.env import Env
+from picomc.env import Env, get_filepath
 from picomc.instance import Instance
 from picomc.logging import logger
-from picomc.utils import die, get_filepath, sanitize_name
+from picomc.utils import die, sanitize_name
 
 
 def instance_list():
@@ -78,6 +78,7 @@ def launch(instance_name, account, version_override):
             inst.launch(account, version_override)
         except AccountError as e:
             logger.error("Not launching due to account error: {}".format(e))
+
 
 @instance_cli.command("natives")
 @instance_cmd

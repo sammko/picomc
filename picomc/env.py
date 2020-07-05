@@ -3,6 +3,10 @@ import sys
 from contextlib import ExitStack
 from os.path import expanduser, join
 
+from picomc.javainfo import get_java_info, get_java_version
+from picomc.logging import logger
+from picomc.utils import die, file_sha1
+
 
 # This is not the best design, but passing these around is too much of a hassle.
 # I considered singletons for the Managers, but I would still have to keep
@@ -56,6 +60,72 @@ def get_default_root():
         # widely-used platforms other than the supported ones. Too bad in
         # case of something exotic. Minecraft doesn't run on those anyway.
         return expanduser("~/.picomc")
+
+
+def write_profiles_dummy():
+    # This file makes the forge installer happy.
+    fname = get_filepath("launcher_profiles.json")
+    with open(fname, "w") as fd:
+        fd.write(r'{"profiles":{}}')
+
+
+def file_verify_relative(path, sha1):
+    abspath = get_filepath(path)
+    return os.path.isfile(abspath) and file_sha1(abspath) == sha1
+
+
+def check_directories():
+    """Create directory structure for the application."""
+    dirs = [
+        "",
+        "instances",
+        "versions",
+        "assets",
+        "assets/indexes",
+        "assets/objects",
+        "assets/virtual",
+        "libraries",
+    ]
+    for d in dirs:
+        path = get_filepath(*d.split("/"))
+        try:
+            os.makedirs(path)
+            logger.debug("Created dir: {}".format(path))
+        except FileExistsError:
+            pass
+
+
+def assert_java(java):
+    try:
+        jinfo = get_java_info(java)
+        jver = get_java_version(java)
+        badjv = False
+        if jinfo:
+            badjv = not jinfo["java.version"].decode("ascii").startswith("1.8.0")
+            bitness = jinfo.get("sun.arch.data.model", None).decode("ascii")
+            if bitness and bitness != "64":
+                logger.warn(
+                    "You are not using 64-bit java. Things will probably not work."
+                )
+        else:
+            badjv = "1.8.0_" not in jver
+
+        logger.info("Using java version: {}".format(jver))
+
+        if badjv:
+            logger.warn(
+                "Minecraft uses java 1.8.0 by default."
+                " You may experience issues, especially with older versions of Minecraft."
+            )
+
+        return jinfo
+
+    except FileNotFoundError:
+        die(
+            "Could not execute java at: {}. Have you installed it? Is it in yout PATH?".format(
+                java
+            )
+        )
 
 
 try:

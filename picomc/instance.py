@@ -7,10 +7,10 @@ from string import Template
 
 import picomc
 from picomc.config import Config
-from picomc.env import Env, get_filepath
+from picomc.env import Env, assert_java, get_filepath
 from picomc.logging import logger
 from picomc.rules import match_ruleset
-from picomc.utils import assert_java, join_classpath, sanitize_name
+from picomc.utils import join_classpath, sanitize_name
 
 
 class NativesExtractor:
@@ -119,7 +119,6 @@ class Instance:
         ne = NativesExtractor(self, filter(attrgetter("is_native"), libs))
         ne.extract()
         logger.info("Extracted natives to {}".format(ne.get_natives_path()))
-
 
     def _exec_mc(self, account, v, java, java_info, gamedir, libraries):
         java = [java]
