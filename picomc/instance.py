@@ -125,7 +125,7 @@ class Instance:
         java.append("-Xms{}".format(self.config["java.memory.min"]))
         java.append("-Xmx{}".format(self.config["java.memory.max"]))
         java += self.config["java.jvmargs"].split()
-        libs = [lib.get_abspath(get_filepath("libraries")) for lib in libraries]
+        libs = [lib.get_abspath(get_filepath("libraries")) for lib in libraries if not lib.is_native]
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
 
