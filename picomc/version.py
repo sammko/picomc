@@ -217,7 +217,7 @@ class Version:
 
     def get_jarfile_dl(self, force=False):
         """Checks existence and hash of cached jar. Returns None if ok, otherwise
-        returns download url"""
+        returns download (url, size)"""
         logger.debug("Attempting to use jarfile: {}".format(self.jarfile))
         dlspec = self.vspec.downloads.get("client", None)
         if dlspec is None:
@@ -237,7 +237,7 @@ class Version:
                     self.version_name
                 )
             )
-            return dlspec["url"]
+            return dlspec["url"], dlspec.get("size", None)
 
     def download_libraries(self, java_info, force=False):
         """Downloads missing libraries."""
@@ -257,10 +257,11 @@ class Version:
                 )
                 continue
             if force or not ok:
-                q.add(library.url, library.get_abspath(basedir))
-        jarurl = self.get_jarfile_dl()
-        if jarurl is not None:
-            q.add(jarurl, self.jarfile)
+                q.add(library.url, library.get_abspath(basedir), library.size)
+        jardl = self.get_jarfile_dl()
+        if jardl is not None:
+            url, size = jardl
+            q.add(url, self.jarfile, size=size)
         if len(q) > 0:
             logger.info("Downloading {} libraries.".format(len(q)))
         if not q.download():
@@ -291,9 +292,9 @@ class Version:
     def download_assets(self, force=False):
         """Downloads missing assets."""
 
-        hashes = set()
+        hashes = dict()
         for obj in self.raw_asset_index["objects"].values():
-            hashes.add(obj["hash"])
+            hashes[obj["hash"]] = obj["size"]
 
         logger.info("Checking {} assets.".format(len(hashes)))
 
@@ -305,7 +306,7 @@ class Version:
             if file_verify_relative(path, sha):
                 continue
             url = urllib.parse.urljoin(self.ASSETS_URL, posixpath.join(sha[0:2], sha))
-            q.add(url, os.path.join(Env.app_root, path))
+            q.add(url, os.path.join(Env.app_root, path), size=hashes[sha])
 
         if len(q) > 0:
             logger.info("Downloading {} assets.".format(len(q)))
