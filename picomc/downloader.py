@@ -12,7 +12,8 @@ from tqdm import tqdm
 
 def copyfileobj_prog(fsrc, fdst, callback, length=0):
     if not length:
-        length = shutil.COPY_BUFSIZE
+        # COPY_BUFSIZE is undocumented and requires python 3.8
+        length = getattr(shutil, "COPY_BUFSIZE", 64*1024)
 
     fsrc_read = fsrc.read
     fdst_write = fdst.write
