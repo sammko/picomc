@@ -30,9 +30,7 @@ def print_version(ctx, param, value):
 
 @click.group()
 @click.option("--debug/--no-debug", default=None)
-@click.option(
-    "-r", "--root", help="Application data directory.", default=get_default_root()
-)
+@click.option("-r", "--root", help="Application data directory.", default=None)
 @click.option(
     "--version", is_flag=True, callback=print_version, expose_value=False, is_eager=True
 )
@@ -46,6 +44,8 @@ def picomc_cli(debug, root):
     root_env = os.getenv("PICOMC_ROOT")
     if root_env is not None:
         root = root_env
+    else:
+        root = get_default_root()
     Env.app_root = os.path.abspath(root)
     check_directories()
 
