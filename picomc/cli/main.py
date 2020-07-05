@@ -19,12 +19,18 @@ from picomc.logging import logger
 from picomc.version import VersionManager
 
 
-def print_version(ctx, param, value):
+def print_version(printer):
+    from picomc import __version__
+    import platform
+
+    printer("picomc, version {}".format(__version__))
+    printer("Python {}".format(platform.python_version()))
+
+def click_print_version(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
-    from picomc import __version__
 
-    click.echo("picomc, version {}".format(__version__))
+    print_version(click.echo)
     ctx.exit()
 
 
@@ -32,11 +38,15 @@ def print_version(ctx, param, value):
 @click.option("--debug/--no-debug", default=None)
 @click.option("-r", "--root", help="Application data directory.", default=None)
 @click.option(
-    "--version", is_flag=True, callback=print_version, expose_value=False, is_eager=True
+    "--version", is_flag=True, callback=click_print_version, expose_value=False, is_eager=True
 )
 def picomc_cli(debug, root):
     """picomc is a minimal CLI Minecraft launcher."""
     picomc.logging.initialize(debug)
+
+    if debug:
+        print_version(logger.debug)
+
     Env.debug = debug
     Env.commit_manager = CommitManager()
 
