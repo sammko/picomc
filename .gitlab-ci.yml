@@ -1,0 +1,18 @@
+image: python:3
+
+wheel:
+  stage: build
+  script: python setup.py bdist_wheel
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+
+fput:
+  stage: deploy
+  script:
+    - cd dist
+    - >
+      for file in *; do
+        curl -F "key=$FPUT_KEY" -F "path=picomc/$file" -F "file=@$file" "$FPUT_URL"
+      done
