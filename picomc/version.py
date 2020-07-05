@@ -208,7 +208,10 @@ class Version:
             for lib in self.vspec.libraries:
                 if "rules" in lib and not match_ruleset(lib["rules"], java_info):
                     continue
-                libs.append(Library(lib))
+                lib_obj = Library(lib)
+                if not lib_obj.available:
+                    continue
+                libs.append(lib_obj)
             if key:
                 self._libraries[key] = libs
             return libs
