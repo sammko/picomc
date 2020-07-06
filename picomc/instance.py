@@ -6,6 +6,7 @@ from operator import attrgetter
 from string import Template
 
 import picomc
+import requests
 from picomc.config import Config
 from picomc.env import Env, assert_java, get_filepath
 from picomc.logging import logger
@@ -157,7 +158,12 @@ class Instance:
                 )
                 sjvmargs.append(res)
 
-        account.refresh()
+        try:
+            account.refresh()
+        except requests.exceptions.ConnectionError:
+            logger.warn(
+                "Failed to refresh account due to a connectivity error. Continuing."
+            )
 
         smcargs = []
         for a in mcargs:
