@@ -1,7 +1,6 @@
 import functools
 
 import click
-
 from picomc.account import AccountError
 from picomc.env import Env, get_filepath
 from picomc.instance import Instance
@@ -62,9 +61,10 @@ def delete(instance_name):
 
 @instance_cli.command()
 @instance_cmd
+@click.option("--verify", is_flag=True, default=False)
 @click.option("--account", default=None)
 @click.option("--version-override", default=None)
-def launch(instance_name, account, version_override):
+def launch(instance_name, account, version_override, verify):
     """Launch the instance."""
     if account is None:
         account = Env.am.get_default()
@@ -75,7 +75,7 @@ def launch(instance_name, account, version_override):
         return
     with Instance(instance_name) as inst:
         try:
-            inst.launch(account, version_override)
+            inst.launch(account, version_override, verify_hashes=verify)
         except AccountError as e:
             logger.error("Not launching due to account error: {}".format(e))
 

@@ -86,7 +86,7 @@ class Instance:
     def populate(self, version):
         self.config["version"] = version
 
-    def launch(self, account, version=None):
+    def launch(self, account, version=None, verify_hashes=False):
         vobj = Env.vm.get_version(version or self.config["version"])
         logger.info("Launching instance: {}".format(self.name))
         if vobj.version_name == self.config["version"]:
@@ -105,7 +105,7 @@ class Instance:
         java_info = assert_java(java)
 
         libraries = vobj.get_libraries(java_info)
-        vobj.prepare_launch(gamedir, java_info)
+        vobj.prepare_launch(gamedir, java_info, verify_hashes)
         # Do this here so that configs are not needlessly overwritten after
         # the game quits
         Env.commit_manager.commit_all_dirty()
@@ -125,7 +125,11 @@ class Instance:
         java.append("-Xms{}".format(self.config["java.memory.min"]))
         java.append("-Xmx{}".format(self.config["java.memory.max"]))
         java += self.config["java.jvmargs"].split()
-        libs = [lib.get_abspath(get_filepath("libraries")) for lib in libraries if not lib.is_native]
+        libs = [
+            lib.get_abspath(get_filepath("libraries"))
+            for lib in libraries
+            if not lib.is_native
+        ]
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
 

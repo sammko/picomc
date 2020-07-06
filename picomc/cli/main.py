@@ -2,7 +2,6 @@ import getpass
 import os
 
 import click
-
 import picomc
 import picomc.logging
 from picomc.account import AccountError, AccountManager, OfflineAccount, OnlineAccount
@@ -26,6 +25,7 @@ def print_version(printer):
     printer("picomc, version {}".format(__version__))
     printer("Python {}".format(platform.python_version()))
 
+
 def click_print_version(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
@@ -38,7 +38,11 @@ def click_print_version(ctx, param, value):
 @click.option("--debug/--no-debug", default=None)
 @click.option("-r", "--root", help="Application data directory.", default=None)
 @click.option(
-    "--version", is_flag=True, callback=click_print_version, expose_value=False, is_eager=True
+    "--version",
+    is_flag=True,
+    callback=click_print_version,
+    expose_value=False,
+    is_eager=True,
 )
 def picomc_cli(debug, root):
     """picomc is a minimal CLI Minecraft launcher."""
@@ -73,7 +77,8 @@ def picomc_cli(debug, root):
 @picomc_cli.command()
 @click.argument("version", default=False)
 @click.option("-a", "--account", "account_name")
-def play(version, account_name):
+@click.option("--verify", is_flag=True, default=False)
+def play(version, account_name, verify):
     """Play Minecraft without having to deal with stuff"""
     if account_name:
         account = Env.am.get(account_name)
@@ -97,4 +102,4 @@ def play(version, account_name):
     with Instance("default") as inst:
         if not ready:
             inst.populate("latest")
-        inst.launch(account, version)
+        inst.launch(account, version, verify_hashes=verify)

@@ -215,7 +215,7 @@ class Version:
                 self._libraries[key] = libs
             return libs
 
-    def get_jarfile_dl(self, force=False):
+    def get_jarfile_dl(self, verify_hashes=False, force=False):
         """Checks existence and hash of cached jar. Returns None if ok, otherwise
         returns download (url, size)"""
         logger.debug("Attempting to use jarfile: {}".format(self.jarfile))
@@ -230,7 +230,7 @@ class Version:
         if (
             force
             or not os.path.exists(self.jarfile)
-            or file_sha1(self.jarfile) != dlspec["sha1"]
+            or (verify_hashes and file_sha1(self.jarfile) != dlspec["sha1"])
         ):
             logger.info(
                 "Jar file ({}) will be downloaded with libraries.".format(
@@ -239,7 +239,7 @@ class Version:
             )
             return dlspec["url"], dlspec.get("size", None)
 
-    def download_libraries(self, java_info, force=False):
+    def download_libraries(self, java_info, verify_hashes=False, force=False):
         """Downloads missing libraries."""
         logger.info("Checking libraries.")
         q = DownloadQueue()
@@ -249,7 +249,7 @@ class Version:
             basedir = get_filepath("libraries")
             abspath = library.get_abspath(basedir)
             ok = os.path.isfile(abspath) and os.path.getsize(abspath) > 0
-            if library.sha1 is not None:
+            if verify_hashes and library.sha1 is not None:
                 ok = ok and file_sha1(abspath) == library.sha1
             if not ok and not library.url:
                 logger.error(
@@ -258,7 +258,7 @@ class Version:
                 continue
             if force or not ok:
                 q.add(library.url, library.get_abspath(basedir), library.size)
-        jardl = self.get_jarfile_dl()
+        jardl = self.get_jarfile_dl(verify_hashes, force)
         if jardl is not None:
             url, size = jardl
             q.add(url, self.jarfile, size=size)
@@ -289,7 +289,7 @@ class Version:
             logger.debug("Resources path: {}".format(where))
             self._populate_virtual_assets(where)
 
-    def download_assets(self, force=False):
+    def download_assets(self, verify_hashes=False, force=False):
         """Downloads missing assets."""
 
         hashes = dict()
@@ -302,11 +302,15 @@ class Version:
 
         q = DownloadQueue()
         for sha in hashes:
-            path = os.path.join("assets", "objects", sha[0:2], sha)
-            if file_verify_relative(path, sha):
-                continue
-            url = urllib.parse.urljoin(self.ASSETS_URL, posixpath.join(sha[0:2], sha))
-            q.add(url, os.path.join(Env.app_root, path), size=hashes[sha])
+            abspath = get_filepath("assets", "objects", sha[0:2], sha)
+            ok = os.path.isfile(abspath)
+            if verify_hashes:
+                ok = ok and file_sha1(abspath) == sha
+            if force or not ok:
+                url = urllib.parse.urljoin(
+                    self.ASSETS_URL, posixpath.join(sha[0:2], sha)
+                )
+                q.add(url, abspath, size=hashes[sha])
 
         if len(q) > 0:
             logger.info("Downloading {} assets.".format(len(q)))
@@ -319,14 +323,14 @@ class Version:
             logger.debug("Virtual asset path: {}".format(where))
             self._populate_virtual_assets(where)
 
-    def prepare(self, java_info=None):
+    def prepare(self, java_info=None, verify_hashes=False):
         if not java_info:
             java_info = get_java_info(Env.gconf.get("java.path"))
-        self.download_libraries(java_info)
-        self.download_assets()
+        self.download_libraries(java_info, verify_hashes)
+        self.download_assets(verify_hashes)
 
-    def prepare_launch(self, gamedir, java_info):
-        self.prepare(java_info)
+    def prepare_launch(self, gamedir, java_info, verify_hahes=False):
+        self.prepare(java_info, verify_hahes)
         self.prepare_assets_launch(gamedir)
 
 

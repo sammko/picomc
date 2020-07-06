@@ -48,10 +48,11 @@ def list(release, snapshot, alpha, beta, local, all):
 
 
 @version_cli.command()
+@click.option("--verify", is_flag=True, default=False)
 @version_cmd
-def prepare(version):
+def prepare(version, verify):
     """Download required files for the version."""
-    version.prepare()
+    version.prepare(verify_hashes=verify)
 
 
 @version_cli.command()
