@@ -1,6 +1,7 @@
 import concurrent.futures
 import os
 import shutil
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
 import certifi
@@ -26,6 +27,14 @@ def copyfileobj_prog(fsrc, fdst, callback, length=0):
         callback(len(buf))
 
 
+def UmaskNamedTemporaryFile(*args, default_mode=0o666, **kwargs):
+    f = tempfile.NamedTemporaryFile(*args, **kwargs)
+    umask = os.umask(0)
+    os.umask(umask)
+    os.chmod(f.name, default_mode & ~umask)
+    return f
+
+
 def downloader_urllib3(q, size=None, workers=16):
     http_pool = urllib3.PoolManager(cert_reqs="CERT_REQUIRED", ca_certs=certifi.where())
     total = len(q)
@@ -44,8 +53,9 @@ def downloader_urllib3(q, size=None, workers=16):
             )
             resp.release_conn()
             return 0
-        with open(dest, "wb") as destfd:
-            copyfileobj_prog(resp, destfd, sz_callback)
+        with UmaskNamedTemporaryFile(dir=os.path.dirname(dest), delete=False) as tempf:
+            copyfileobj_prog(resp, tempf, sz_callback)
+        os.replace(tempf.name, dest)
         resp.release_conn()
         return len(resp.data)
 
