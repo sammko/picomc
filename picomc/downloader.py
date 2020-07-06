@@ -57,6 +57,7 @@ def downloader_urllib3(q, size=None, workers=16):
     logger.debug("Downloading {} files.".format(total))
     have_size = size is not None
     errors = []
+    had_error = False
 
     def dl_file(i, url, dest, sz_callback, stop_event):
         # In case the task could not be cancelled
@@ -111,6 +112,7 @@ def downloader_urllib3(q, size=None, workers=16):
                     logger.error(
                         "Exception while downloading {}: {}".format(fut_to_url[fut], ex)
                     )
+                    had_error = True
                 else:
                     if not have_size:
                         tq.update(1)
@@ -129,7 +131,7 @@ def downloader_urllib3(q, size=None, workers=16):
     for error in errors:
         logger.warn(error)
 
-    return not errors
+    return not errors and not had_error
 
 
 class DownloadQueue:

@@ -315,7 +315,7 @@ class Version:
         if len(q) > 0:
             logger.info("Downloading {} assets.".format(len(q)))
         if not q.download():
-            logger.error("Some assets failed to download.")
+            logger.warn("Some assets failed to download.")
 
         if is_virtual:
             logger.info("Copying virtual assets")
