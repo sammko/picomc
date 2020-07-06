@@ -2,7 +2,7 @@ image: python:3
 
 wheel:
   stage: build
-  script: python setup.py bdist_wheel
+  script: python setup.py sdist bdist_wheel
   artifacts:
     paths:
       - dist/
