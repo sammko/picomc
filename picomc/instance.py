@@ -89,7 +89,7 @@ class Instance:
     def launch(self, account, version=None, verify_hashes=False):
         vobj = Env.vm.get_version(version or self.config["version"])
         logger.info("Launching instance: {}".format(self.name))
-        if vobj.version_name == self.config["version"]:
+        if version or vobj.version_name == self.config["version"]:
             logger.info("Using version: {}".format(vobj.version_name))
         else:
             logger.info(
