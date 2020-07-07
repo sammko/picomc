@@ -148,7 +148,7 @@ class Version:
                 with open(vspec_path) as fp:
                     return json.load(fp)
             else:
-                die("Specified version not available")
+                die("Specified version ({}) not available".format(self.version_name))
         url = self.version_manifest["url"]
         # Pull the hash out of the url. This is prone to breakage, maybe
         # just try to download the vspec and don't care about whether it
