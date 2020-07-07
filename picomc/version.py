@@ -1,4 +1,6 @@
+import enum
 import json
+import operator
 import os
 import posixpath
 import shutil
@@ -16,31 +18,32 @@ from picomc.rules import match_ruleset
 from picomc.utils import die, file_sha1, recur_files
 
 
-class VersionType:
-    MAP = {"release": 1, "snapshot": 2, "old_alpha": 4, "old_beta": 8}
-
-    def __init__(self, d=None):
-        if isinstance(d, int):
-            self._a = d
-        elif isinstance(d, str):
-            self._a = self.MAP[d]
-
-    def __or__(self, other):
-        return VersionType(self._a | other._a)
+class VersionType(enum.Flag):
+    NONE = 0
+    RELEASE = enum.auto()
+    SNAPSHOT = enum.auto()
+    ALPHA = enum.auto()
+    BETA = enum.auto()
+    ANY = RELEASE | SNAPSHOT | ALPHA | BETA
 
     def match(self, s):
-        return bool(self.MAP[s] & self._a)
+        names = {
+            "release": VersionType.RELEASE,
+            "snapshot": VersionType.SNAPSHOT,
+            "old_alpha": VersionType.ALPHA,
+            "old_beta": VersionType.BETA,
+        }
+        return bool(names[s] & self)
 
     @staticmethod
     def create(release, snapshot, alpha, beta):
-        a = release | (2 * snapshot) | (4 * alpha) | (8 * beta)
-        return VersionType(a)
-
-
-VersionType.RELEASE = VersionType("release")
-VersionType.SNAPSHOT = VersionType("snapshot")
-VersionType.ALPHA = VersionType("old_alpha")
-VersionType.BETA = VersionType("old_beta")
+        D = {
+            VersionType.RELEASE: release,
+            VersionType.SNAPSHOT: snapshot,
+            VersionType.ALPHA: alpha,
+            VersionType.BETA: beta,
+        }.items()
+        return reduce(operator.or_, (k for k, v in D if v), VersionType.NONE)
 
 
 def argumentadd(d1, d2):
