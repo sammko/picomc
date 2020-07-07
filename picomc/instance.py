@@ -180,7 +180,7 @@ class Instance:
                 version_name=v.version_name,
                 game_directory=gamedir,
                 assets_root=get_filepath("assets"),
-                assets_index_name=v.vspec.assetIndex["id"],
+                assets_index_name=v.vspec.assets,
                 game_assets=v.get_virtual_asset_path(),
             )
             smcargs.append(res)

@@ -96,6 +96,7 @@ class VersionSpec:
             pass
         self.mainClass = self.attr_override("mainClass")
         self.assetIndex = self.attr_override("assetIndex")
+        self.assets = self.attr_override("assets")
         self.libraries = self.attr_reduce("libraries", lambda x, y: y + x)
         self.jar = self.attr_override("jar", default=self.vobj.version_name)
         self.downloads = self.attr_override("downloads", default={})
