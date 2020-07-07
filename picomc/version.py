@@ -13,7 +13,7 @@ from picomc.javainfo import get_java_info
 from picomc.library import Library
 from picomc.logging import logger
 from picomc.rules import match_ruleset
-from picomc.utils import cached_property, die, file_sha1, recur_files
+from picomc.utils import die, file_sha1, recur_files
 
 
 class VersionType:
@@ -107,7 +107,7 @@ class VersionSpec:
         chain.append(self.vobj)
         cv = self.vobj
         while "inheritsFrom" in cv.raw_vspec:
-            cv = Version(cv.raw_vspec["inheritsFrom"])
+            cv = Env.vm.get_version(cv.raw_vspec["inheritsFrom"])
             chain.append(cv)
         return chain
 
@@ -125,65 +125,62 @@ class VersionSpec:
 class Version:
     ASSETS_URL = "http://resources.download.minecraft.net/"
 
-    def __init__(self, version_name):
+    def __init__(self, version_name, version_manifest):
         self.version_name = version_name
+        self.version_manifest = version_manifest
         self._libraries = dict()
 
-    @cached_property
-    def jarfile(self):
-        v = self.vspec.jar
-        return get_filepath("versions", v, "{}.jar".format(v))
+        self.raw_vspec = self.get_raw_vspec()
+        self.vspec = VersionSpec(self)
 
-    @cached_property
-    def raw_vspec(self):
-        fpath = get_filepath(
+        self.raw_asset_index = self.get_raw_asset_index(self.vspec)
+
+        jarname = self.vspec.jar
+        self.jarfile = get_filepath("versions", jarname, "{}.jar".format(jarname))
+
+    def get_raw_vspec(self):
+        vspec_path = get_filepath(
             "versions", self.version_name, "{}.json".format(self.version_name)
         )
-        ver = Env.vm.get_manifest_version(self.version_name)
-        if not ver:
-            if os.path.exists(fpath):
+        if not self.version_manifest:
+            if os.path.exists(vspec_path):
                 logger.debug("Found custom vspec ({})".format(self.version_name))
-                with open(fpath) as fp:
+                with open(vspec_path) as fp:
                     return json.load(fp)
             else:
                 die("Specified version not available")
-        url = ver["url"]
+        url = self.version_manifest["url"]
         # Pull the hash out of the url. This is prone to breakage, maybe
         # just try to download the vspec and don't care about whether it
         # is up to date or not.
         url_split = urllib.parse.urlsplit(url)
         sha1 = posixpath.basename(posixpath.dirname(url_split.path))
 
-        if os.path.exists(fpath) and file_sha1(fpath) == sha1:
+        if os.path.exists(vspec_path) and file_sha1(vspec_path) == sha1:
             logger.debug(
                 "Using cached vspec files, hash matches manifest ({})".format(
                     self.version_name
                 )
             )
-            with open(fpath) as fp:
+            with open(vspec_path) as fp:
                 return json.load(fp)
 
         try:
             logger.debug("Downloading vspec file")
             raw = requests.get(url).content
-            dirpath = os.path.dirname(fpath)
+            dirpath = os.path.dirname(vspec_path)
             os.makedirs(dirpath, exist_ok=True)
-            with open(fpath, "wb") as fp:
+            with open(vspec_path, "wb") as fp:
                 fp.write(raw)
             j = json.loads(raw)
             return j
         except requests.ConnectionError:
             die("Failed to retrieve version json file. Check your internet connection.")
 
-    @cached_property
-    def vspec(self):
-        return VersionSpec(self)
-
-    @cached_property
-    def raw_asset_index(self):
-        iid = self.vspec.assetIndex["id"]
-        url = self.vspec.assetIndex["url"]
-        sha1 = self.vspec.assetIndex["sha1"]
+    def get_raw_asset_index(self, vspec):
+        iid = vspec.assetIndex["id"]
+        url = vspec.assetIndex["url"]
+        sha1 = vspec.assetIndex["sha1"]
         fpath = get_filepath("assets", "indexes", "{}.json".format(iid))
         if os.path.exists(fpath) and file_sha1(fpath) == sha1:
             logger.debug("Using cached asset index, hash matches vspec")
@@ -340,9 +337,10 @@ class Version:
 
 
 class VersionManager:
-    VERSION_MANIFEST_URL = (
-        "https://launchermeta.mojang.com/mc/game/version_manifest.json"
-    )
+    MANIFEST_URL = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
+
+    def __init__(self):
+        self.manifest = self.get_manifest()
 
     def resolve_version_name(self, v):
         """Takes a metaversion and resolves to a version."""
@@ -354,11 +352,10 @@ class VersionManager:
             logger.debug("Resolved snapshot -> {}".format(v))
         return v
 
-    @cached_property
-    def manifest(self):
+    def get_manifest(self):
         manifest_filepath = get_filepath("versions", "manifest.json")
         try:
-            m = requests.get(self.VERSION_MANIFEST_URL).json()
+            m = requests.get(self.MANIFEST_URL).json()
             with open(manifest_filepath, "w") as mfile:
                 json.dump(m, mfile, indent=4, sort_keys=True)
             return m
@@ -375,11 +372,6 @@ class VersionManager:
                 logger.warn("Cached version manifest not available.")
                 raise RuntimeError("Failed to retrieve version manifest.")
 
-    def get_manifest_version(self, version_name):
-        for ver in self.manifest["versions"]:
-            if ver["id"] == version_name:
-                return ver
-
     def version_list(self, vtype=VersionType.RELEASE, local=False):
         r = [v["id"] for v in self.manifest["versions"] if vtype.match(v["type"])]
         if local:
@@ -393,4 +385,9 @@ class VersionManager:
         return r
 
     def get_version(self, version_name):
-        return Version(self.resolve_version_name(version_name))
+        version_manifest = None
+        for ver in self.manifest["versions"]:
+            if ver["id"] == version_name:
+                version_manifest = ver
+                break
+        return Version(self.resolve_version_name(version_name), version_manifest)

@@ -6,18 +6,6 @@ from functools import partial
 from picomc.logging import logger
 
 
-class cached_property(object):
-    def __init__(self, fn):
-        self.fn = fn
-
-    def __get__(self, inst, cls):
-        if inst is None:
-            return self
-        r = self.fn(inst)
-        setattr(inst, self.fn.__name__, r)
-        return r
-
-
 def join_classpath(*cp):
     return os.pathsep.join(cp)
 
