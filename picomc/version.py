@@ -199,7 +199,10 @@ class Version:
             die("Failed to retrieve asset index.")
 
     def get_libraries(self, java_info):
-        key = java_info.get("java.home", None)
+        if java_info is not None:
+            key = java_info.get("java.home", None)
+        else:
+            key = None
         if key and key in self._libraries:
             return self._libraries[key]
         else:
