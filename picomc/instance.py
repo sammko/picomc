@@ -187,6 +187,8 @@ class Instance:
 
         fargs = java + sjvmargs + [mc] + smcargs
         logger.debug("Launching: " + " ".join(fargs))
+        if not Env.debug:
+            logger.info("Launching")
         subprocess.run(fargs, cwd=gamedir)
 
     @staticmethod
