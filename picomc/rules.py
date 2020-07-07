@@ -45,6 +45,10 @@ def match_rule(rule, java_info):
 
 
 def match_ruleset(ruleset, java_info):
+    # An empty ruleset is satisfied, but if a ruleset only contains rules which
+    # you don't match, it is not.
+    if len(ruleset) == 0:
+        return True
     sat = False
     for rule in ruleset:
         if match_rule(rule, java_info):
