@@ -138,11 +138,6 @@ def write_profiles_dummy():
         fd.write(r'{"profiles":{}}')
 
 
-def file_verify_relative(path, sha1):
-    abspath = get_filepath(path)
-    return os.path.isfile(abspath) and file_sha1(abspath) == sha1
-
-
 def check_directories():
     """Create directory structure for the application."""
     dirs = [

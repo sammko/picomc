@@ -8,7 +8,7 @@ from functools import reduce
 
 import requests
 from picomc.downloader import DownloadQueue
-from picomc.env import Env, file_verify_relative, get_filepath
+from picomc.env import Env, get_filepath
 from picomc.javainfo import get_java_info
 from picomc.library import Library
 from picomc.logging import logger
