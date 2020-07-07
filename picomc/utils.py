@@ -37,3 +37,9 @@ def die(mesg, code=1):
 
 def sanitize_name(name):
     return name.replace("..", "_").replace("/", "_")
+
+
+def recur_files(path):
+    for dirpath, dirnames, filenames in os.walk(path):
+        for f in filenames:
+            yield os.path.join(dirpath, f)

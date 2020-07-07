@@ -13,7 +13,7 @@ from picomc.javainfo import get_java_info
 from picomc.library import Library
 from picomc.logging import logger
 from picomc.rules import match_ruleset
-from picomc.utils import cached_property, die, file_sha1
+from picomc.utils import cached_property, die, file_sha1, recur_files
 
 
 class VersionType:
@@ -303,10 +303,12 @@ class Version:
 
         is_virtual = self.raw_asset_index.get("virtual", False)
 
+        fileset = set(recur_files(get_filepath("assets")))
         q = DownloadQueue()
+        objpath = get_filepath("assets", "objects")
         for sha in hashes:
-            abspath = get_filepath("assets", "objects", sha[0:2], sha)
-            ok = os.path.isfile(abspath)
+            abspath = os.path.join(objpath, sha[0:2], sha)
+            ok = abspath in fileset  # file exists
             if verify_hashes:
                 ok = ok and file_sha1(abspath) == sha
             if force or not ok:
