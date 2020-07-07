@@ -42,50 +42,6 @@ VersionType.SNAPSHOT = VersionType("snapshot")
 VersionType.ALPHA = VersionType("old_alpha")
 VersionType.BETA = VersionType("old_beta")
 
-MODE_OVERRIDE = 0
-MODE_REDUCE = 1
-
-
-class CachedVspecAttr(object):
-    def __init__(self, attr, mode=MODE_OVERRIDE, reduce_func=None, default=None):
-        self.attr = attr
-        self.mode = mode
-        self.rfunc = reduce_func
-        self.default = default
-
-    def __get__(self, vspec, cls):
-        if vspec is None:
-            return self
-        try:
-            if self.mode == MODE_OVERRIDE:
-                for v in vspec.chain:
-                    if self.attr in v.raw_vspec:
-                        r = v.raw_vspec[self.attr]
-                        break
-                else:
-                    raise AttributeError()
-            elif self.mode == MODE_REDUCE:
-                try:
-                    r = reduce(
-                        self.rfunc,
-                        (
-                            v.raw_vspec[self.attr]
-                            for v in vspec.chain[::-1]
-                            if self.attr in v.raw_vspec
-                        ),
-                    )
-                except TypeError as e:
-                    raise AttributeError() from e
-        except AttributeError:
-            if self.default is not None:
-                r = self.default(vspec.vobj)
-        finally:
-            try:
-                setattr(vspec, self.attr, r)
-                return r
-            except UnboundLocalError as e:
-                raise AttributeError() from e
-
 
 def argumentadd(d1, d2):
     d = d1.copy()
@@ -98,40 +54,61 @@ def argumentadd(d1, d2):
 
 
 class VersionSpec:
-    def __init__(self, vobj):
+    def __init__(self, vobj, version_manager):
         self.vobj = vobj
-        self.chain = self._resolve_chain()
+        self.chain = self.resolve_chain(version_manager)
+        self.initialize_fields()
 
-    def _resolve_chain(self):
+    def resolve_chain(self, version_manager):
         chain = []
         chain.append(self.vobj)
         cv = self.vobj
         while "inheritsFrom" in cv.raw_vspec:
-            cv = Env.vm.get_version(cv.raw_vspec["inheritsFrom"])
+            cv = version_manager.get_version(cv.raw_vspec["inheritsFrom"])
             chain.append(cv)
         return chain
 
-    minecraftArguments = CachedVspecAttr("minecraftArguments")
-    arguments = CachedVspecAttr("arguments", mode=MODE_REDUCE, reduce_func=argumentadd)
-    mainClass = CachedVspecAttr("mainClass")
-    assetIndex = CachedVspecAttr("assetIndex")
-    libraries = CachedVspecAttr(
-        "libraries", mode=MODE_REDUCE, reduce_func=lambda x, y: y + x
-    )
-    jar = CachedVspecAttr("jar", default=lambda vobj: vobj.version_name)
-    downloads = CachedVspecAttr("downloads", default=lambda vobj: {})
+    def attr_override(self, attr, default=None):
+        for v in self.chain:
+            if attr in v.raw_vspec:
+                return v.raw_vspec[attr]
+        if default is None:
+            raise AttributeError(attr)
+        return default
+
+    def attr_reduce(self, attr, reduce_func):
+        L = [v.raw_vspec[attr] for v in self.chain[::-1] if attr in v.raw_vspec]
+        if not L:
+            raise AttributeError(attr)
+        return reduce(reduce_func, L)
+
+    def initialize_fields(self):
+        try:
+            self.minecraftArguments = self.attr_override("minecraftArguments")
+        except AttributeError:
+            pass
+        try:
+            self.arguments = self.attr_reduce("arguments", argumentadd)
+        except AttributeError:
+            pass
+        self.mainClass = self.attr_override("mainClass")
+        self.assetIndex = self.attr_override("assetIndex")
+        self.libraries = self.attr_reduce("libraries", lambda x, y: y + x)
+        self.jar = self.attr_override("jar", default=self.vobj.version_name)
+        self.downloads = self.attr_override("downloads", default={})
 
 
 class Version:
     ASSETS_URL = "http://resources.download.minecraft.net/"
 
-    def __init__(self, version_name, version_manifest):
+    def __init__(self, version_name, version_manager, version_manifest):
         self.version_name = version_name
+        self.version_manager = version_manager
         self.version_manifest = version_manifest
         self._libraries = dict()
 
         self.raw_vspec = self.get_raw_vspec()
-        self.vspec = VersionSpec(self)
+        self.vspec = VersionSpec(self, self.version_manager)
 
         self.raw_asset_index = self.get_raw_asset_index(self.vspec)
 
@@ -390,4 +367,4 @@ class VersionManager:
             if ver["id"] == version_name:
                 version_manifest = ver
                 break
-        return Version(self.resolve_version_name(version_name), version_manifest)
+        return Version(self.resolve_version_name(version_name), self, version_manifest)
