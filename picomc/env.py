@@ -1,11 +1,12 @@
 import os
+import platform
 import sys
 from contextlib import ExitStack
 from os.path import expanduser, join
 
 from picomc.javainfo import get_java_info, get_java_version
 from picomc.logging import logger
-from picomc.utils import die, file_sha1
+from picomc.utils import die
 
 
 # This is not the best design, but passing these around is too much of a hassle.
@@ -200,3 +201,24 @@ except KeyError:
     # on other platforms and natives are not available. (Unless you compile
     # them and patch the corresponding version json)
     Env.platform = sys.platform
+
+
+def get_os_version(java_info):
+    if not java_info:
+        return None, None
+    version = java_info.get("os.version").decode("ascii")
+    return version
+
+
+def get_os_arch():
+    mach = platform.machine().lower()
+    if mach == "amd64":  # Windows 64-bit
+        return "x86_64"
+    elif mach in ("i386", "i486", "i586", "i686"):  # Linux 32-bit
+        return "x86"
+    elif mach == "aarch64":  # Linux
+        return "arm64"
+    else:
+        # Windows 32-bit (x86) and Linux 64-bit (x86_64) return the expected
+        # values by default. Unsupported architectures are left untouched.
+        return mach
