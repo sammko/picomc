@@ -1,4 +1,5 @@
 import os
+import shlex
 import shutil
 import subprocess
 import zipfile
@@ -122,10 +123,6 @@ class Instance:
         logger.info("Extracted natives to {}".format(ne.get_natives_path()))
 
     def _exec_mc(self, account, v, java, java_info, gamedir, libraries):
-        java = [java]
-        java.append("-Xms{}".format(self.config["java.memory.min"]))
-        java.append("-Xmx{}".format(self.config["java.memory.max"]))
-        java += self.config["java.jvmargs"].split()
         libs = [
             lib.get_abspath(get_filepath("libraries"))
             for lib in libraries
@@ -143,7 +140,7 @@ class Instance:
         mc = v.vspec.mainClass
 
         if hasattr(v.vspec, "minecraftArguments"):
-            mcargs = v.vspec.minecraftArguments.split()
+            mcargs = shlex.split(v.vspec.minecraftArguments)
             sjvmargs = ["-Djava.library.path={}".format(natives), "-cp", classpath]
         elif hasattr(v.vspec, "arguments"):
             mcargs, jvmargs = process_arguments(v.vspec.arguments, java_info)
@@ -185,10 +182,17 @@ class Instance:
             )
             smcargs.append(res)
 
-        fargs = java + sjvmargs + [mc] + smcargs
-        logger.debug("Launching: " + " ".join(fargs))
-        if not Env.debug:
-            logger.info("Launching")
+        my_jvm_args = [
+            "-Xms{}".format(self.config["java.memory.min"]),
+            "-Xmx{}".format(self.config["java.memory.max"]),
+        ]
+        my_jvm_args += shlex.split(self.config["java.jvmargs"])
+
+        fargs = [java] + sjvmargs + my_jvm_args + [mc] + smcargs
+        if Env.debug:
+            logger.debug("Launching: " + " ".join(fargs))
+        else:
+            logger.info("Launching the game")
         subprocess.run(fargs, cwd=gamedir)
 
     @staticmethod
