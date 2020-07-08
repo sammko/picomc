@@ -366,9 +366,10 @@ class VersionManager:
         return r
 
     def get_version(self, version_name):
+        name = self.resolve_version_name(version_name)
         version_manifest = None
         for ver in self.manifest["versions"]:
-            if ver["id"] == version_name:
+            if ver["id"] == name:
                 version_manifest = ver
                 break
-        return Version(self.resolve_version_name(version_name), self, version_manifest)
+        return Version(name, self, version_manifest)
