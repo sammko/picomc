@@ -211,6 +211,10 @@ class Version:
         if (
             force
             or not os.path.exists(self.jarfile)
+            # The fabric-installer places an empty jarfile here, due to some
+            # quirk of an old (git blame 2 years) version of the vanilla launcher.
+            # https://github.com/FabricMC/fabric-installer/blob/master/src/main/java/net/fabricmc/installer/client/ClientInstaller.java#L49
+            or os.path.getsize(self.jarfile) == 0
             or (verify_hashes and file_sha1(self.jarfile) != dlspec["sha1"])
         ):
             logger.info(
