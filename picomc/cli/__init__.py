@@ -1,4 +1,3 @@
-
 from .account import register_account_cli
 from .config import register_config_cli
 from .instance import register_instance_cli

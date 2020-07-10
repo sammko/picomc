@@ -1,10 +1,10 @@
 import os
 import urllib.parse
 from dataclasses import dataclass
-from picomc.env import Env
+from platform import architecture
 from string import Template
 
-from platform import architecture
+from picomc.env import Env
 from picomc.logging import logger
 
 

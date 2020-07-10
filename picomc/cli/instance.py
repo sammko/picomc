@@ -1,6 +1,7 @@
 import functools
 
 import click
+
 from picomc.account import AccountError
 from picomc.env import Env, get_filepath
 from picomc.instance import Instance

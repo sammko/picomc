@@ -4,6 +4,7 @@ import posixpath
 import urllib.parse
 
 import click
+
 from picomc.env import Env
 from picomc.logging import logger
 from picomc.utils import die, file_sha1

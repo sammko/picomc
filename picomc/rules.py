@@ -1,5 +1,4 @@
 import re
-from platform import architecture
 
 from picomc.env import Env, get_os_arch, get_os_version
 from picomc.logging import logger

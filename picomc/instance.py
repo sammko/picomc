@@ -6,8 +6,9 @@ import zipfile
 from operator import attrgetter
 from string import Template
 
-import picomc
 import requests
+
+import picomc
 from picomc.config import Config
 from picomc.env import Env, assert_java, get_filepath
 from picomc.logging import logger

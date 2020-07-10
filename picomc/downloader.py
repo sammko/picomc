@@ -8,9 +8,10 @@ from contextlib import contextmanager
 
 import certifi
 import urllib3
+from tqdm import tqdm
+
 from picomc.env import Env
 from picomc.logging import logger
-from tqdm import tqdm
 
 
 def copyfileobj_prog(fsrc, fdst, callback, stop_event, length=0):

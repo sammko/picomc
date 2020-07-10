@@ -2,6 +2,7 @@ import getpass
 import os
 
 import click
+
 import picomc
 import picomc.logging
 from picomc.account import AccountError, AccountManager, OfflineAccount, OnlineAccount
@@ -19,8 +20,9 @@ from picomc.version import VersionManager
 
 
 def print_version(printer):
-    from picomc import __version__
     import platform
+
+    from picomc import __version__
 
     printer("picomc, version {}".format(__version__))
     printer("Python {}".format(platform.python_version()))
