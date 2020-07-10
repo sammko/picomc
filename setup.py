@@ -22,6 +22,6 @@ setup(
     ],
     packages=find_packages(),
     install_requires=["click", "requests", "urllib3", "certifi", "tqdm", "coloredlogs"],
-    python_requires=">=3",
+    python_requires=">=3.7",
     entry_points={"console_scripts": ["picomc = picomc:main"]},
 )
