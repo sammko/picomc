@@ -29,13 +29,11 @@ def get_loader_meta(game_version, loader_version):
         urllib.parse.quote(game_version)
     )
     obj = requests.get(url).json()
-    for ver in obj:
-        if loader_version:
-            if ver["loader"]["version"] == loader_version:
-                return loader_version, ver["launcherMeta"]
-        else:
-            if ver["loader"]["stable"]:
-                return ver["loader"]["version"], ver["launcherMeta"]
+    if loader_version is None:
+        ver = next(v for v in obj if v["loader"]["stable"])
+    else:
+        ver = next(v for v in obj if v["loader"]["version"] == loader_version)
+    return ver["loader"]["version"], ver["launcherMeta"]
 
 
 def generate_vspec_obj(version_name, loader_obj, loader_version, game_version):
@@ -43,6 +41,7 @@ def generate_vspec_obj(version_name, loader_obj, loader_version, game_version):
 
     out["id"] = version_name
     out["inheritsFrom"] = game_version
+    out["jar"] = game_version  # Prevent the jar from being duplicated
 
     current_time = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     out["time"] = current_time
@@ -69,8 +68,8 @@ def generate_vspec_obj(version_name, loader_obj, loader_version, game_version):
     return out
 
 
-def install(versions_root, game_version="", loader_version="", version_name=None):
-    if not game_version:
+def install(versions_root, game_version=None, loader_version=None, version_name=None):
+    if game_version is None:
         game_version = latest_game_version()
 
     loader_version, loader_obj = get_loader_meta(game_version, loader_version)
@@ -87,13 +86,12 @@ def install(versions_root, game_version="", loader_version="", version_name=None
 
     os.mkdir(version_dir)
     with open(os.path.join(version_dir, f"{version_name}.json"), "w") as fd:
-        json.dump(vspec_obj, fd)
+        json.dump(vspec_obj, fd, indent=2)
 
 
 @click.command()
-# Empty strings used as click does not support default=None in arguments
-@click.argument("game_version", default="")
-@click.argument("loader_version", default="")
+@click.argument("game_version", required=False)
+@click.argument("loader_version", required=False)
 @click.option("--name", default=None)
 @click.pass_obj
 def install_cli(ctxo, game_version, loader_version, name):
