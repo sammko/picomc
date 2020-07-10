@@ -30,12 +30,12 @@ def get_loader_meta(game_version, loader_version):
     )
     obj = requests.get(url).json()
     for ver in obj:
-        if loader_version is None:
-            if ver["loader"]["stable"]:
-                return ver["loader"]["version"], ver["launcherMeta"]
-        else:
+        if loader_version:
             if ver["loader"]["version"] == loader_version:
                 return loader_version, ver["launcherMeta"]
+        else:
+            if ver["loader"]["stable"]:
+                return ver["loader"]["version"], ver["launcherMeta"]
 
 
 def generate_vspec_obj(version_name, loader_obj, loader_version, game_version):
@@ -69,20 +69,21 @@ def generate_vspec_obj(version_name, loader_obj, loader_version, game_version):
     return out
 
 
-def install(versions_root, game_version=None, loader_version=None):
-    if game_version is None:
+def install(versions_root, game_version="", loader_version="", version_name=None):
+    if not game_version:
         game_version = latest_game_version()
 
     loader_version, loader_obj = get_loader_meta(game_version, loader_version)
 
-    version_name = "{}-{}-{}".format(LOADER_NAME, loader_version, game_version)
+    if version_name is None:
+        version_name = "{}-{}-{}".format(LOADER_NAME, loader_version, game_version)
+
+    version_dir = os.path.join(versions_root, version_name)
+    assert not os.path.exists(version_dir)
 
     vspec_obj = generate_vspec_obj(
         version_name, loader_obj, loader_version, game_version
     )
-
-    version_dir = os.path.join(versions_root, version_name)
-    assert not os.path.exists(version_dir)
 
     os.mkdir(version_dir)
     with open(os.path.join(version_dir, f"{version_name}.json"), "w") as fd:
@@ -90,15 +91,13 @@ def install(versions_root, game_version=None, loader_version=None):
 
 
 @click.command()
-@click.argument("game_version", default=False)
-@click.argument("loader_version", default=False)
+# Empty strings used as click does not support default=None in arguments
+@click.argument("game_version", default="")
+@click.argument("loader_version", default="")
+@click.option("--name", default=None)
 @click.pass_obj
-def install_cli(ctxo, game_version, loader_version):
-    if game_version is False:
-        game_version = None
-    if loader_version is False:
-        loader_version = None
-    install(ctxo["VERSIONS_ROOT"], game_version, loader_version)
+def install_cli(ctxo, game_version, loader_version, name):
+    install(ctxo["VERSIONS_ROOT"], game_version, loader_version, version_name=name)
 
 
 def register_cli(root):
