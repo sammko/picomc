@@ -75,7 +75,7 @@ def jar(version, which, output):
     logger.info("Downloading the {} file and saving to {}".format(which, output))
     urllib.request.urlretrieve(dlspec["url"], output)
     if file_sha1(output) != sha1:
-        logger.warn("Hash of downloaded file does not match")
+        logger.warning("Hash of downloaded file does not match")
 
 
 def register_version_cli(root_cli):

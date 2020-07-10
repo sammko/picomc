@@ -302,7 +302,7 @@ class Version:
         if len(q) > 0:
             logger.info("Downloading {} assets.".format(len(q)))
         if not q.download():
-            logger.warn("Some assets failed to download.")
+            logger.warning("Some assets failed to download.")
 
         if is_virtual:
             logger.info("Copying virtual assets")
@@ -345,16 +345,16 @@ class VersionManager:
                 json.dump(m, mfile, indent=4, sort_keys=True)
             return m
         except requests.ConnectionError:
-            logger.warn(
+            logger.warning(
                 "Failed to retrieve version_manifest. "
                 "Check your internet connection."
             )
             try:
                 with open(manifest_filepath) as mfile:
-                    logger.warn("Using cached version_manifest.")
+                    logger.warning("Using cached version_manifest.")
                     return json.load(mfile)
             except FileNotFoundError:
-                logger.warn("Cached version manifest not available.")
+                logger.warning("Cached version manifest not available.")
                 raise RuntimeError("Failed to retrieve version manifest.")
 
     def version_list(self, vtype=VersionType.RELEASE, local=False):

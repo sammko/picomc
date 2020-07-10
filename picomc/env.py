@@ -106,11 +106,11 @@ def get_appdata():
 
     # HACK: This check is relatively fragile
     if "WindowsApps\\PythonSoftwareFoundation" in sys.base_exec_prefix:
-        logger.warn(
+        logger.warning(
             "Detected Microsoft Store Python distribution. It is recommended to install Python using the official installer or a package manager like Chocolatey."
         )
         appdata = get_appdata_uwp()
-        logger.warn("Using redirected AppData directory: {}".format(appdata))
+        logger.warning("Using redirected AppData directory: {}".format(appdata))
         return appdata
     else:
         return os.getenv("APPDATA")
@@ -169,7 +169,7 @@ def assert_java(java):
             badjv = not jinfo["java.version"].decode("ascii").startswith("1.8.0")
             bitness = jinfo.get("sun.arch.data.model", None).decode("ascii")
             if bitness and bitness != "64":
-                logger.warn(
+                logger.warning(
                     "You are not using 64-bit java. Things will probably not work."
                 )
         else:
@@ -178,7 +178,7 @@ def assert_java(java):
         logger.info("Using java version: {}".format(jver))
 
         if badjv:
-            logger.warn(
+            logger.warning(
                 "Minecraft uses java 1.8.0 by default."
                 " You may experience issues, especially with older versions of Minecraft."
             )

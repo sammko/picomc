@@ -120,7 +120,7 @@ def downloader_urllib3(q, size=None, workers=16):
                     # from within the thread
         except KeyboardInterrupt as ex:
             tq.close()
-            logger.warn("Stopping downloader threads.")
+            logger.warning("Stopping downloader threads.")
             stop_event.set()
             tpe.shutdown()
             for fut in fut_to_url:
@@ -129,7 +129,7 @@ def downloader_urllib3(q, size=None, workers=16):
 
     # Do this at the end in order to not break the progress bar.
     for error in errors:
-        logger.warn(error)
+        logger.warning(error)
 
     return not errors and not had_error
 

@@ -158,7 +158,7 @@ class Instance:
         try:
             account.refresh()
         except requests.exceptions.ConnectionError:
-            logger.warn(
+            logger.warning(
                 "Failed to refresh account due to a connectivity error. Continuing."
             )
 

@@ -29,7 +29,7 @@ def match_rule(rule, java_info):
         return osmatch
 
     if len(rule) > 1:
-        logger.warn("Not matching unknown rule {}".format(rule.keys()))
+        logger.warning("Not matching unknown rule {}".format(rule.keys()))
         return False
 
     return True

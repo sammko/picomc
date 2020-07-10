@@ -50,7 +50,7 @@ class Library:
                 self.native_classifier = Template(classifier_tmpl).substitute(arch=arch)
                 self.native_suffix = "-" + self.native_classifier
             except KeyError:
-                logger.warn(
+                logger.warning(
                     f"Native {self.libname} is not available for current platform {Env.platform}."
                 )
                 self.native_classifier = None
