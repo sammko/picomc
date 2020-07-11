@@ -11,7 +11,7 @@ setup(
     version=version,
     cmdclass=cmdclass,
     description="A very small CLI Minecraft launcher.",
-    url="https://git.sammserver.com/sammko/picomc",
+    url="https://github.com/sammko/picomc",
     author="Samuel Čavoj",
     author_email="samuel@cavoj.net",
     license="MIT",
