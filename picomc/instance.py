@@ -5,6 +5,7 @@ import subprocess
 import zipfile
 from operator import attrgetter
 from string import Template
+from tempfile import mkdtemp
 
 import requests
 
@@ -20,13 +21,12 @@ class NativesExtractor:
     def __init__(self, instance, natives):
         self.instance = instance
         self.natives = natives
-        self.ndir = get_filepath("instances", instance.name, "natives")
+        self.ndir = mkdtemp(prefix="natives-", dir=instance.get_relpath())
 
     def get_natives_path(self):
         return self.ndir
 
     def extract(self):
-        os.makedirs(self.ndir, exist_ok=True)
         dedup = set()
         for library in self.natives:
             fullpath = library.get_abspath(get_filepath("libraries"))
@@ -43,6 +43,7 @@ class NativesExtractor:
 
     def __enter__(self):
         self.extract()
+        return self.ndir
 
     def __exit__(self, ext_type, exc_value, traceback):
         logger.debug("Cleaning up natives.")
@@ -72,16 +73,18 @@ def process_arguments(arguments_dict, java_info):
 class Instance:
     def __init__(self, name):
         self.name = sanitize_name(name)
+        self.directory = get_filepath("instances", self.name)
 
     def __enter__(self):
-        self.config = Config(
-            get_filepath("instances", self.name, "config.json"), bottom=Env.gconf
-        )
+        self.config = Config(self.get_relpath("config.json"), bottom=Env.gconf)
         Env.commit_manager.add(self.config)
         return self
 
     def __exit__(self, ext_type, exc_value, traceback):
         pass
+
+    def get_relpath(self, rel=""):
+        return os.path.join(self.directory, rel)
 
     def get_java(self):
         return self.config["java.path"]
@@ -101,7 +104,7 @@ class Instance:
                 )
             )
         logger.info("Using account: {}".format(account))
-        gamedir = get_filepath("instances", self.name, "minecraft")
+        gamedir = self.get_relpath("minecraft")
         os.makedirs(gamedir, exist_ok=True)
 
         java = self.get_java()
@@ -112,8 +115,12 @@ class Instance:
         # Do this here so that configs are not needlessly overwritten after
         # the game quits
         Env.commit_manager.commit_all_dirty()
-        with NativesExtractor(self, filter(attrgetter("is_native"), libraries)):
-            self._exec_mc(account, vobj, java, java_info, gamedir, libraries)
+        with NativesExtractor(
+            self, filter(attrgetter("is_native"), libraries)
+        ) as natives_dir:
+            self._exec_mc(
+                account, vobj, java, java_info, gamedir, libraries, natives_dir
+            )
 
     def extract_natives(self):
         vobj = Env.vm.get_version(self.config["version"])
@@ -123,7 +130,7 @@ class Instance:
         ne.extract()
         logger.info("Extracted natives to {}".format(ne.get_natives_path()))
 
-    def _exec_mc(self, account, v, java, java_info, gamedir, libraries):
+    def _exec_mc(self, account, v, java, java_info, gamedir, libraries, natives):
         libs = [
             lib.get_abspath(get_filepath("libraries"))
             for lib in libraries
@@ -135,8 +142,6 @@ class Instance:
         version_type, user_type = (
             ("picomc", "mojang") if account.online else ("picomc/offline", "offline")
         )
-
-        natives = get_filepath("instances", self.name, "natives")
 
         mc = v.vspec.mainClass
 
@@ -196,10 +201,10 @@ class Instance:
             logger.info("Launching the game")
         subprocess.run(fargs, cwd=gamedir)
 
-    @staticmethod
-    def exists(name):
-        name = sanitize_name(name)
-        return os.path.exists(get_filepath("instances", name, "config.json"))
+    @classmethod
+    def exists(cls, name):
+        inst = cls(name)
+        return os.path.exists(inst.get_relpath("config.json"))
 
     @staticmethod
     def delete(name):
