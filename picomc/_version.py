@@ -32,18 +32,18 @@ def get_version():
 def pep440_format(version_info):
     release, dev, labels = version_info
 
-    version_parts = [release]
+    local_parts = []
     if dev:
-        if release.endswith("-dev") or release.endswith(".dev"):
-            version_parts.append(dev)
-        else:  # prefer PEP440 over strict adhesion to semver
-            version_parts.append(".dev{}".format(dev))
+        local_parts.append(dev)
 
     if labels:
-        version_parts.append("+")
-        version_parts.append(".".join(labels))
+        local_parts.extend(labels)
 
-    return "".join(version_parts)
+    local_suffix = ""
+    if local_parts:
+        local_suffix = "+" + ".".join(local_parts)
+
+    return release + local_suffix
 
 
 def get_version_from_git():
@@ -117,9 +117,12 @@ def get_version_from_git_archive():
     refs = set(r.strip() for r in _refnames.split(","))
     version_tags = set(r[len(VTAG) :] for r in refs if r.startswith(VTAG))
     if version_tags:
-        release, *_ = sorted(version_tags)  # prefer e.g. "2.0" over "2.0rc1"
+        # This should be sorted using packaging.version.parse but
+        # a single commit should not have multiple versions anyway.
+        release, *_ = sorted(version_tags)
         return Version(release, dev=None, labels=None)
     else:
+        print("Versions don't work in non-release git archives. Clone the repo.")
         return Version("unknown", dev=None, labels=["g{}".format(_git_hash)])
 
 
