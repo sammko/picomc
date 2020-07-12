@@ -39,6 +39,7 @@ class Library:
         self.libname, *suffix = js["name"].split("@")
         self.extension = suffix[0] if suffix else "jar"
         self.is_native = "natives" in js
+        self.is_classpath = not (self.is_native or js.get("presenceOnly", False))
         self.base_url = js.get("url", Library.MOJANG_BASE_URL)
 
         self.available = True
