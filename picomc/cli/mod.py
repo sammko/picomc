@@ -1,4 +1,5 @@
 import click
+
 from picomc import mod
 from picomc.env import get_filepath
 
@@ -8,27 +9,34 @@ def mod_cli():
     pass
 
 
+def list_loaders(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    print("list")
+    for loader in mod.LOADERS:
+        print(loader._loader_name)
+    ctx.exit()
+
+
 @mod_cli.group("loader")
-def loader_cli():
+@click.option(
+    "--list",
+    "-l",
+    is_eager=True,
+    is_flag=True,
+    expose_value=False,
+    callback=list_loaders,
+)
+@click.pass_context
+def loader_cli(ctx):
+    ctx.ensure_object(dict)
+
+    ctx.obj["VERSIONS_ROOT"] = get_filepath("versions")
     pass
 
 
-@loader_cli.command("list")
-def loader_list_cli():
-    """List available mod loaders."""
-    for loader in mod.LOADERS:
-        print(loader._loader_name)
-
-
-@loader_cli.group("install")
-@click.pass_context
-def loader_install_cli(ctx):
-    ctx.ensure_object(dict)
-    ctx.obj["VERSIONS_ROOT"] = get_filepath("versions")
-
-
 for loader in mod.LOADERS:
-    loader.register_cli(loader_install_cli)
+    loader.register_cli(loader_cli)
 
 
 def register_mod_cli(picomc_cli):
