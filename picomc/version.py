@@ -363,10 +363,12 @@ class VersionManager:
         if local:
             import os
 
+            version_dir = get_filepath("versions")
             r += sorted(
                 "{} [local]".format(name)
-                for name in os.listdir(get_filepath("versions"))
-                if os.path.isdir(get_filepath("versions", name))
+                for name in os.listdir(version_dir)
+                if not name.startswith(".")
+                and os.path.isdir(os.path.join(version_dir, name))
             )
         return r
 
