@@ -20,7 +20,7 @@ class LibraryArtifact:
     def from_json(cls, obj):
         return cls(
             url=obj["url"],
-            path=obj["path"],
+            path=obj.get("path", None),  # path is not required
             sha1=obj["sha1"],
             size=obj["size"],
             filename=None,
@@ -36,7 +36,8 @@ class Library:
 
     def _populate(self):
         js = self.json_lib
-        self.libname = js["name"]
+        self.libname, *suffix = js["name"].split("@")
+        self.extension = suffix[0] if suffix else "jar"
         self.is_native = "natives" in js
         self.base_url = js.get("url", Library.MOJANG_BASE_URL)
 
@@ -71,7 +72,8 @@ class Library:
             final_art = self.artifact
 
             # Sanity check
-            assert self.virt_artifact.path == self.artifact.path
+            if self.artifact.path is not None:
+                assert self.virt_artifact.path == self.artifact.path
         else:
             final_art = self.virt_artifact
 
@@ -89,7 +91,7 @@ class Library:
         group = group.replace(".", "/")
         v2 = "-".join([version] + va)
 
-        filename = f"{art_id}-{v2}{self.native_suffix}.jar"
+        filename = f"{art_id}-{v2}{self.native_suffix}.{self.extension}"
         path = f"{group}/{art_id}/{version}/{filename}"
         url = urllib.parse.urljoin(self.base_url, path)
 
