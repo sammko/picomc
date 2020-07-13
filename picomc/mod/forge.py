@@ -21,6 +21,8 @@ MAVEN_URL = "https://files.minecraftforge.net/maven/net/minecraftforge/forge/"
 PROMO_FILE = "promotions.json"
 META_FILE = "maven-metadata.xml"
 INSTALLER_FILE = "forge-{}-installer.jar"
+UNIVERSAL_FILE = "minecraftforge-universal-{}.jar"
+FORGE_FILE = "minecraftforge-{}.jar"
 INSTALL_PROFILE_FILE = "install_profile.json"
 VERSION_INFO_FILE = "version.json"
 
@@ -103,16 +105,75 @@ def resolve_version(game_version=None, forge_version=None, latest=False):
         raise VersionError("Version mismatch")
     game_version = found_game
 
-    return f"{game_version}-forge-{forge_version}", full
+    return game_version, forge_version, full
 
 
-def install_classic(version_dir, version_name, extract_dir, install_profile):
-    # TODO
-    die("Legacy forge versions are not yet supported")
+def install_classic(
+    game_version,
+    forge_version,
+    version,
+    version_dir,
+    libraries_root,
+    version_name,
+    extract_dir,
+    install_profile,
+):
+    # TODO Some processing of the libraries should be done to remove duplicates.
+    vspec = make_base_vspec(install_profile["versionInfo"], version_name, game_version)
+    save_vspec(vspec, version_dir, version_name)
+    universal_file = os.path.join(extract_dir, UNIVERSAL_FILE.format(version))
+    forge_libpath = os.path.join(
+        libraries_root,
+        *f"net/minecraftforge/minecraftforge/{forge_version}".split("/"),
+        FORGE_FILE.format(forge_version),
+    )
+    os.makedirs(os.path.dirname(forge_libpath), exist_ok=True)
+    shutil.copy(universal_file, forge_libpath)
+
+
+def make_base_vspec(version_info, version_name, game_version=None):
+    vspec = {}
+    for key in [
+        "arguments",
+        "minecraftArguments",
+        "inheritsFrom",
+        "type",
+        "releaseTime",
+        "time",
+        "mainClass",
+    ]:
+        if key in version_info:
+            vspec[key] = version_info[key]
+
+    vspec["id"] = version_name
+    if "inheritsFrom" in version_info:
+        vspec["jar"] = version_info["inheritsFrom"]  # Prevent vanilla jar duplication
+    else:
+        vspec["jar"] = game_version
+        vspec["inheritsFrom"] = game_version
+    vspec["libraries"] = version_info["libraries"]
+
+    return vspec
+
+
+def save_vspec(vspec, version_dir, version_name):
+    with open(os.path.join(version_dir, f"{version_name}.json"), "w") as fd:
+        json.dump(vspec, fd, indent=2)
+
+
+def install_newstyle(
+    version, version_info, version_dir, libraries_root, version_name, extract_dir,
+):
+    vspec = make_base_vspec(version_info, version_name)
+    save_vspec(vspec, version_dir, version_name)
+    shutil.copytree(
+        os.path.join(extract_dir, "maven/"), libraries_root, dirs_exist_ok=True
+    )
 
 
 def install_113(
     version,
+    version_info,
     installer_file,
     version_dir,
     libraries_root,
@@ -120,27 +181,14 @@ def install_113(
     extract_dir,
     install_profile,
 ):
-    with open(os.path.join(extract_dir, VERSION_INFO_FILE)) as fd:
-        version_info = json.load(fd)
-    vspec = {}
-    for key in ["arguments", "inheritsFrom", "type", "releaseTime", "time"]:
-        vspec[key] = version_info[key]
-
-    vspec["id"] = version_name
-    vspec["jar"] = version_info["inheritsFrom"]  # Prevent vanilla jar duplication
-
-    vspec["mainClass"] = FORGE_WRAPPER["mainClass"]
-    libs = [FORGE_WRAPPER["library"]]
-    libs.extend(version_info["libraries"])
+    vspec = make_base_vspec(version_info, version_name)
+    vspec["libraries"].append(FORGE_WRAPPER["library"])
 
     for install_lib in install_profile["libraries"]:
         install_lib["presenceOnly"] = True
-        libs.append(install_lib)
+        vspec["libraries"].append(install_lib)
 
-    vspec["libraries"] = libs
-
-    with open(os.path.join(version_dir, f"{version_name}.json"), "w") as fd:
-        json.dump(vspec, fd, indent=2)
+    save_vspec(vspec, version_dir, version_name)
 
     shutil.copytree(
         os.path.join(extract_dir, "maven/"), libraries_root, dirs_exist_ok=True
@@ -151,6 +199,7 @@ def install_113(
         *f"net/minecraftforge/forge/{version}".split("/"),
         INSTALLER_FILE.format(version),
     )
+    os.makedirs(os.path.dirname(installer_libpath), exist_ok=True)
     shutil.copy(installer_file, installer_libpath)
 
 
@@ -162,10 +211,14 @@ def install(
     latest=False,
     version_name=None,
 ):
-    default_version_name, version = resolve_version(game_version, forge_version, latest)
+    game_version, forge_version, version = resolve_version(
+        game_version, forge_version, latest
+    )
 
     if version_name is None:
-        version_name = default_version_name
+        version_name = f"{game_version}-forge-{forge_version}"
+
+    logger.info(f"Installing Forge {version} as {version_name}")
 
     version_dir = os.path.join(versions_root, version_name)
     if os.path.exists(version_dir):
@@ -196,17 +249,40 @@ def install(
             with open(os.path.join(extract_dir, INSTALL_PROFILE_FILE)) as fd:
                 install_profile = json.load(fd)
             if "install" in install_profile:
-                install_classic(version_dir, version_name, extract_dir, install_profile)
-            else:
-                install_113(
+                install_classic(
+                    game_version,
+                    forge_version,
                     version,
-                    installer_file,
                     version_dir,
                     libraries_root,
                     version_name,
                     extract_dir,
                     install_profile,
                 )
+            else:
+                with open(os.path.join(extract_dir, VERSION_INFO_FILE)) as fd:
+                    version_info = json.load(fd)
+                if len(install_profile["processors"]) == 0:
+                    # A legacy version with an updated installer
+                    install_newstyle(
+                        version,
+                        version_info,
+                        version_dir,
+                        libraries_root,
+                        version_name,
+                        extract_dir,
+                    )
+                else:
+                    install_113(
+                        version,
+                        version_info,
+                        installer_file,
+                        version_dir,
+                        libraries_root,
+                        version_name,
+                        extract_dir,
+                        install_profile,
+                    )
 
 
 @click.group("forge")
