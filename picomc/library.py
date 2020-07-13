@@ -106,8 +106,13 @@ class Library:
                 # Native not available for current platform
                 return None
             else:
-                art = self.json_lib["downloads"]["classifiers"][self.native_classifier]
-                return LibraryArtifact.from_json(art)
+                try:
+                    art = self.json_lib["downloads"]["classifiers"][
+                        self.native_classifier
+                    ]
+                    return LibraryArtifact.from_json(art)
+                except KeyError:
+                    return None
         else:
             try:
                 return LibraryArtifact.from_json(self.json_lib["downloads"]["artifact"])
