@@ -112,8 +112,9 @@ def install_113(
         vspec[key] = version_info[key]
 
     vspec["id"] = version_name
+    vspec["jar"] = version_info["inheritsFrom"]  # Prevent vanilla jar duplication
 
-    # TODO Abstract this out, also add download for patched ForgeWrapper
+    # TODO Abstract this out
     vspec["mainClass"] = "io.github.zekerzhayard.forgewrapper.installer.Main"
     libs = [
         {
