@@ -24,6 +24,20 @@ INSTALLER_FILE = "forge-{}-installer.jar"
 INSTALL_PROFILE_FILE = "install_profile.json"
 VERSION_INFO_FILE = "version.json"
 
+FORGE_WRAPPER = {
+    "mainClass": "net.cavoj.picoforgewrapper.Main",
+    "library": {
+        "name": "net.cavoj:PicoForgeWrapper:1.2",
+        "downloads": {
+            "artifact": {
+                "url": f"https://mvn.cavoj.net/net/cavoj/PicoForgeWrapper/1.2/PicoForgeWrapper-1.2.jar",
+                "sha1": "e2c52c40ff991133f9515014e9e18e9401ee7959",
+                "size": 6383,
+            }
+        },
+    },
+}
+
 
 class VersionError(Exception):
     pass
@@ -87,8 +101,9 @@ def resolve_version(game_version=None, forge_version=None, latest=False):
     found_game, full = full_from_forge(all_versions, forge_version)
     if game_version and found_game != game_version:
         raise VersionError("Version mismatch")
+    game_version = found_game
 
-    return full
+    return f"{game_version}-forge-{forge_version}", full
 
 
 def install_classic(version_dir, version_name, extract_dir, install_profile):
@@ -114,20 +129,8 @@ def install_113(
     vspec["id"] = version_name
     vspec["jar"] = version_info["inheritsFrom"]  # Prevent vanilla jar duplication
 
-    # TODO Abstract this out
-    vspec["mainClass"] = "io.github.zekerzhayard.forgewrapper.installer.Main"
-    libs = [
-        {
-            "name": "io.github.zekerzhayard:ForgeWrapper:1.4.1.picomc",
-            "downloads": {
-                "artifact": {
-                    "url": f"https://p.sammserver.com/ForgeWrapper-1.4.1.picomc.jar",
-                    "sha1": "bea4faff95db5cc09271876aff76fe690a228ffa",
-                    "size": 14400,
-                }
-            },
-        }
-    ]
+    vspec["mainClass"] = FORGE_WRAPPER["mainClass"]
+    libs = [FORGE_WRAPPER["library"]]
     libs.extend(version_info["libraries"])
 
     for install_lib in install_profile["libraries"]:
@@ -159,11 +162,10 @@ def install(
     latest=False,
     version_name=None,
 ):
-    version = resolve_version(game_version, forge_version, latest)
+    default_version_name, version = resolve_version(game_version, forge_version, latest)
 
     if version_name is None:
-        # This doesn't match the installer, that's not a problem though.
-        version_name = "forge-" + version
+        version_name = default_version_name
 
     version_dir = os.path.join(versions_root, version_name)
     if os.path.exists(version_dir):
