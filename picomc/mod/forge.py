@@ -182,7 +182,8 @@ def install_113(
     install_profile,
 ):
     vspec = make_base_vspec(version_info, version_name)
-    vspec["libraries"].append(FORGE_WRAPPER["library"])
+    vspec["libraries"] = [FORGE_WRAPPER["library"]] + vspec["libraries"]
+    vspec["mainClass"] = FORGE_WRAPPER["mainClass"]
 
     for install_lib in install_profile["libraries"]:
         install_lib["presenceOnly"] = True
