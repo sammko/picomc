@@ -32,6 +32,7 @@ def loader_cli(ctx):
     ctx.ensure_object(dict)
 
     ctx.obj["VERSIONS_ROOT"] = get_filepath("versions")
+    ctx.obj["LIBRARIES_ROOT"] = get_filepath("libraries")
     pass
 
 

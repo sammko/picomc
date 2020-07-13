@@ -1,3 +1,3 @@
-import picomc.mod.fabric as fabric
+from . import fabric, forge
 
-LOADERS = [fabric]
+LOADERS = [fabric, forge]
