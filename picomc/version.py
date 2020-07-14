@@ -57,6 +57,17 @@ def argumentadd(d1, d2):
     return d
 
 
+_sentinel = object()
+
+LEGACY_ASSETS = {
+    "id": "legacy",
+    "sha1": "770572e819335b6c0a053f8378ad88eda189fc14",
+    "size": 109634,
+    "totalSize": 153475165,
+    "url": "https://launchermeta.mojang.com/v1/packages/770572e819335b6c0a053f8378ad88eda189fc14/legacy.json",
+}
+
+
 class VersionSpec:
     def __init__(self, vobj, version_manager):
         self.vobj = vobj
@@ -72,11 +83,11 @@ class VersionSpec:
             chain.append(cv)
         return chain
 
-    def attr_override(self, attr, default=None):
+    def attr_override(self, attr, default=_sentinel):
         for v in self.chain:
             if attr in v.raw_vspec:
                 return v.raw_vspec[attr]
-        if default is None:
+        if default is _sentinel:
             raise AttributeError(attr)
         return default
 
@@ -96,8 +107,10 @@ class VersionSpec:
         except AttributeError:
             pass
         self.mainClass = self.attr_override("mainClass")
-        self.assetIndex = self.attr_override("assetIndex")
-        self.assets = self.attr_override("assets")
+        self.assetIndex = self.attr_override("assetIndex", default=None)
+        self.assets = self.attr_override("assets", default="legacy")
+        if self.assetIndex is None and self.assets == "legacy":
+            self.assetIndex = LEGACY_ASSETS
         self.libraries = self.attr_reduce("libraries", lambda x, y: y + x)
         self.jar = self.attr_override("jar", default=self.vobj.version_name)
         self.downloads = self.attr_override("downloads", default={})
@@ -115,10 +128,13 @@ class Version:
         self.raw_vspec = self.get_raw_vspec()
         self.vspec = VersionSpec(self, self.version_manager)
 
-        self.raw_asset_index = self.get_raw_asset_index(self.vspec)
+        if self.vspec.assetIndex is not None:
+            self.raw_asset_index = self.get_raw_asset_index(self.vspec.assetIndex)
 
-        jarname = self.vspec.jar
-        self.jarfile = get_filepath("versions", jarname, "{}.jar".format(jarname))
+        self.jarname = self.vspec.jar
+        self.jarfile = get_filepath(
+            "versions", self.jarname, "{}.jar".format(self.jarname)
+        )
 
     def get_raw_vspec(self):
         vspec_path = get_filepath(
@@ -159,10 +175,10 @@ class Version:
         except requests.ConnectionError:
             die("Failed to retrieve version json file. Check your internet connection.")
 
-    def get_raw_asset_index(self, vspec):
-        iid = vspec.assetIndex["id"]
-        url = vspec.assetIndex["url"]
-        sha1 = vspec.assetIndex["sha1"]
+    def get_raw_asset_index(self, asset_index_spec):
+        iid = asset_index_spec["id"]
+        url = asset_index_spec["url"]
+        sha1 = asset_index_spec["sha1"]
         fpath = get_filepath("assets", "indexes", "{}.json".format(iid))
         if os.path.exists(fpath) and file_sha1(fpath) == sha1:
             logger.debug("Using cached asset index, hash matches vspec")
@@ -176,6 +192,14 @@ class Version:
             return json.loads(raw)
         except requests.ConnectionError:
             die("Failed to retrieve asset index.")
+
+    def get_raw_asset_index_nodl(self, id_):
+        fpath = get_filepath("assets", "indexes", "{}.json".format(id_))
+        if os.path.exists(fpath):
+            with open(fpath) as fp:
+                return json.load(fp)
+        else:
+            die("Asset index specified in 'assets' not available.")
 
     def get_libraries(self, java_info):
         if java_info is not None:
@@ -219,9 +243,7 @@ class Version:
             or (verify_hashes and file_sha1(self.jarfile) != dlspec["sha1"])
         ):
             logger.info(
-                "Jar file ({}) will be downloaded with libraries.".format(
-                    self.version_name
-                )
+                "Jar file ({}) will be downloaded with libraries.".format(self.jarname)
             )
             return dlspec["url"], dlspec.get("size", None)
 
@@ -255,8 +277,8 @@ class Version:
                 "Some libraries failed to download. If they are part of a non-vanilla profile, the original installer may need to be used."
             )
 
-    def _populate_virtual_assets(self, where):
-        for name, obj in self.raw_asset_index["objects"].items():
+    def _populate_virtual_assets(self, asset_index, where):
+        for name, obj in asset_index["objects"].items():
             sha = obj["hash"]
             objpath = get_filepath("assets", "objects", sha[0:2], sha)
             path = os.path.join(where, *name.split("/"))
@@ -268,12 +290,13 @@ class Version:
         return get_filepath("assets", "virtual", self.vspec.assetIndex["id"])
 
     def prepare_assets_launch(self, gamedir):
-        is_map_resources = self.raw_asset_index.get("map_to_resources", False)
+        launch_asset_index = self.get_raw_asset_index_nodl(self.vspec.assets)
+        is_map_resources = launch_asset_index.get("map_to_resources", False)
         if is_map_resources:
             logger.info("Mapping resources")
             where = os.path.join(gamedir, "resources")
             logger.debug("Resources path: {}".format(where))
-            self._populate_virtual_assets(where)
+            self._populate_virtual_assets(launch_asset_index, where)
 
     def download_assets(self, verify_hashes=False, force=False):
         """Downloads missing assets."""
@@ -309,13 +332,14 @@ class Version:
             logger.info("Copying virtual assets")
             where = self.get_virtual_asset_path()
             logger.debug("Virtual asset path: {}".format(where))
-            self._populate_virtual_assets(where)
+            self._populate_virtual_assets(self.raw_asset_index, where)
 
     def prepare(self, java_info=None, verify_hashes=False):
         if not java_info:
             java_info = get_java_info(Env.gconf.get("java.path"))
         self.download_libraries(java_info, verify_hashes)
-        self.download_assets(verify_hashes)
+        if hasattr(self, "raw_asset_index"):
+            self.download_assets(verify_hashes)
 
     def prepare_launch(self, gamedir, java_info, verify_hahes=False):
         self.prepare(java_info, verify_hahes)
