@@ -3,7 +3,9 @@ import os
 import posixpath
 import shutil
 import urllib.parse
+from dataclasses import dataclass
 from operator import itemgetter
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from xml.etree import ElementTree
 from zipfile import ZipFile
@@ -12,6 +14,7 @@ import click
 import requests
 
 from picomc.downloader import DownloadQueue
+from picomc.library import Artifact
 from picomc.logging import logger
 from picomc.utils import die
 
@@ -21,8 +24,6 @@ MAVEN_URL = "https://files.minecraftforge.net/maven/net/minecraftforge/forge/"
 PROMO_FILE = "promotions.json"
 META_FILE = "maven-metadata.xml"
 INSTALLER_FILE = "forge-{}-installer.jar"
-UNIVERSAL_FILE = "minecraftforge-universal-{}.jar"
-FORGE_FILE = "minecraftforge-{}.jar"
 INSTALL_PROFILE_FILE = "install_profile.json"
 VERSION_INFO_FILE = "version.json"
 
@@ -33,8 +34,8 @@ FORGE_WRAPPER = {
         "downloads": {
             "artifact": {
                 "url": f"https://mvn.cavoj.net/net/cavoj/PicoForgeWrapper/1.2/PicoForgeWrapper-1.2.jar",
-                "sha1": "e2c52c40ff991133f9515014e9e18e9401ee7959",
-                "size": 6383,
+                "sha1": "0ad36756c05cf910bc596dd1a8239d20daa8e481",
+                "size": 6177,
             }
         },
     },
@@ -108,30 +109,33 @@ def resolve_version(game_version=None, forge_version=None, latest=False):
     return game_version, forge_version, full
 
 
-def install_classic(
-    game_version,
-    forge_version,
-    version,
-    version_dir,
-    libraries_root,
-    version_name,
-    extract_dir,
-    install_profile,
-):
+@dataclass
+class ForgeInstallContext:
+    version: str  # The full Forge version string
+    version_info: dict  # The version.json file from installer package
+    game_version: str
+    forge_version: str
+    version_dir: Path
+    libraries_dir: Path
+    version_name: str  # Name of the output picomc profile
+    extract_dir: Path  # Root of extracted installer
+    installer_file: Path
+    install_profile: dict
+
+
+def install_classic(ctx: ForgeInstallContext):
     # TODO Some processing of the libraries should be done to remove duplicates.
-    vspec = make_base_vspec(install_profile["versionInfo"], version_name, game_version)
-    save_vspec(vspec, version_dir, version_name)
-    universal_file = os.path.join(extract_dir, UNIVERSAL_FILE.format(version))
-    forge_libpath = os.path.join(
-        libraries_root,
-        *f"net/minecraftforge/minecraftforge/{forge_version}".split("/"),
-        FORGE_FILE.format(forge_version),
-    )
-    os.makedirs(os.path.dirname(forge_libpath), exist_ok=True)
-    shutil.copy(universal_file, forge_libpath)
+    vspec = make_base_vspec(ctx)
+    save_vspec(ctx, vspec)
+    install_meta = ctx.install_profile["install"]
+    src_file = ctx.extract_dir / install_meta["filePath"]
+    dst_file = ctx.libraries_dir / Artifact.make(install_meta["path"]).path
+    os.makedirs(dst_file.parent, exist_ok=True)
+    shutil.copy(src_file, dst_file)
 
 
-def make_base_vspec(version_info, version_name, game_version=None):
+def make_base_vspec(ctx: ForgeInstallContext):
+    vi = ctx.version_info
     vspec = {}
     for key in [
         "arguments",
@@ -142,70 +146,60 @@ def make_base_vspec(version_info, version_name, game_version=None):
         "time",
         "mainClass",
     ]:
-        if key in version_info:
-            vspec[key] = version_info[key]
+        if key in vi:
+            vspec[key] = vi[key]
 
-    vspec["id"] = version_name
-    if "inheritsFrom" in version_info:
-        vspec["jar"] = version_info["inheritsFrom"]  # Prevent vanilla jar duplication
+    vspec["id"] = ctx.version_name
+    if "inheritsFrom" in vi:
+        vspec["jar"] = vi["inheritsFrom"]  # Prevent vanilla jar duplication
     else:
-        vspec["jar"] = game_version
-        vspec["inheritsFrom"] = game_version
-    vspec["libraries"] = version_info["libraries"]
+        # This is the case for som really old forge versions, before the
+        # launcher supported inheritsFrom. Libraries should also be filtered
+        # in this case, as they contain everything from the vanilla vspec as well.
+        # TODO
+        logger.warning(
+            "Support for this version of Forge is not epic yet. Problems may arise."
+        )
+        vspec["jar"] = ctx.game_version
+        vspec["inheritsFrom"] = ctx.game_version
+    vspec["libraries"] = vi["libraries"]
 
     return vspec
 
 
-def save_vspec(vspec, version_dir, version_name):
-    with open(os.path.join(version_dir, f"{version_name}.json"), "w") as fd:
+def save_vspec(ctx, vspec):
+    with open(ctx.version_dir / f"{ctx.version_name}.json", "w") as fd:
         json.dump(vspec, fd, indent=2)
 
 
-def install_newstyle(
-    version, version_info, version_dir, libraries_root, version_name, extract_dir,
-):
-    vspec = make_base_vspec(version_info, version_name)
-    save_vspec(vspec, version_dir, version_name)
-    shutil.copytree(
-        os.path.join(extract_dir, "maven/"), libraries_root, dirs_exist_ok=True
-    )
+def install_newstyle(ctx: ForgeInstallContext):
+    vspec = make_base_vspec(ctx)
+    save_vspec(ctx, vspec)
+    shutil.copytree(ctx.extract_dir / "maven", ctx.libraries_dir, dirs_exist_ok=True)
 
 
-def install_113(
-    version,
-    version_info,
-    installer_file,
-    version_dir,
-    libraries_root,
-    version_name,
-    extract_dir,
-    install_profile,
-):
-    vspec = make_base_vspec(version_info, version_name)
+def install_113(ctx: ForgeInstallContext):
+    vspec = make_base_vspec(ctx)
+
     vspec["libraries"] = [FORGE_WRAPPER["library"]] + vspec["libraries"]
     vspec["mainClass"] = FORGE_WRAPPER["mainClass"]
 
-    for install_lib in install_profile["libraries"]:
+    for install_lib in ctx.install_profile["libraries"]:
         install_lib["presenceOnly"] = True
         vspec["libraries"].append(install_lib)
 
-    save_vspec(vspec, version_dir, version_name)
+    save_vspec(ctx, vspec)
 
-    shutil.copytree(
-        os.path.join(extract_dir, "maven/"), libraries_root, dirs_exist_ok=True
-    )
+    shutil.copytree(ctx.extract_dir / "maven", ctx.libraries_dir, dirs_exist_ok=True)
 
-    installer_libpath = os.path.join(
-        libraries_root,
-        *f"net/minecraftforge/forge/{version}".split("/"),
-        INSTALLER_FILE.format(version),
-    )
-    os.makedirs(os.path.dirname(installer_libpath), exist_ok=True)
-    shutil.copy(installer_file, installer_libpath)
+    installer_descriptor = f"net.minecraftforge:forge:{ctx.version}:installer"
+    installer_libpath = ctx.libraries_dir / Artifact.make(installer_descriptor).path
+    os.makedirs(installer_libpath.parent, exist_ok=True)
+    shutil.copy(ctx.installer_file, installer_libpath)
 
 
 def install(
-    versions_root,
+    versions_root: Path,
     libraries_root,
     game_version=None,
     forge_version=None,
@@ -226,64 +220,62 @@ def install(
         die(f"Version with name {version_name} already exists")
 
     for line in (
-        "As the Forge project is supported mostly by ads on their downloads\n"
+        "As the Forge project is kept alive mostly thanks to ads on their downloads\n"
         "site, please consider supporting them at https://www.patreon.com/LexManos/\n"
-        "or by downloading the installer manually without AdBlock."
+        "or by visiting their website and looking at some ads."
     ).splitlines():
-        logger.info(line)
+        logger.warn(line)
 
     installer_url = urllib.parse.urljoin(
         MAVEN_URL, posixpath.join(version, INSTALLER_FILE.format(version))
     )
     # TODO Legacy forge versions don't have an installer
     with TemporaryDirectory(prefix=".forge-installer-", dir=versions_root) as tempdir:
+        tempdir = Path(tempdir)
+        installer_file = tempdir / "installer.jar"
+        extract_dir = tempdir / "installer"
+
         dq = DownloadQueue()
-        installer_file = os.path.join(tempdir, "installer.jar")
         dq.add(installer_url, installer_file)
         logger.info("Downloading installer")
-        dq.download()
-        extract_dir = os.path.join(tempdir, "installer")
+        if not dq.download():
+            die("Failed to download installer.")
         os.mkdir(version_dir)
-        os.mkdir(extract_dir)
-        with ZipFile(installer_file) as zf:
-            zf.extractall(path=extract_dir)
-            with open(os.path.join(extract_dir, INSTALL_PROFILE_FILE)) as fd:
-                install_profile = json.load(fd)
-            if "install" in install_profile:
-                install_classic(
-                    game_version,
-                    forge_version,
-                    version,
-                    version_dir,
-                    libraries_root,
-                    version_name,
-                    extract_dir,
-                    install_profile,
-                )
-            else:
-                with open(os.path.join(extract_dir, VERSION_INFO_FILE)) as fd:
-                    version_info = json.load(fd)
-                if len(install_profile["processors"]) == 0:
-                    # A legacy version with an updated installer
-                    install_newstyle(
-                        version,
-                        version_info,
-                        version_dir,
-                        libraries_root,
-                        version_name,
-                        extract_dir,
-                    )
+        try:
+            os.mkdir(extract_dir)
+            ctx = ForgeInstallContext(
+                version=version,
+                version_info=None,
+                game_version=game_version,
+                forge_version=forge_version,
+                version_dir=versions_root / version_name,
+                libraries_dir=libraries_root,
+                version_name=version_name,
+                extract_dir=extract_dir,
+                installer_file=installer_file,
+                install_profile=None,
+            )
+            with ZipFile(installer_file) as zf:
+                zf.extractall(path=extract_dir)
+                with open(os.path.join(extract_dir, INSTALL_PROFILE_FILE)) as fd:
+                    ctx.install_profile = json.load(fd)
+                if "install" in ctx.install_profile:
+                    ctx.version_info = ctx.install_profile["versionInfo"]
+                    logger.info("Installing from classic installer")
+                    install_classic(ctx)
                 else:
-                    install_113(
-                        version,
-                        version_info,
-                        installer_file,
-                        version_dir,
-                        libraries_root,
-                        version_name,
-                        extract_dir,
-                        install_profile,
-                    )
+                    with open(os.path.join(extract_dir, VERSION_INFO_FILE)) as fd:
+                        ctx.version_info = json.load(fd)
+                    if len(ctx.install_profile["processors"]) == 0:
+                        logger.info("Installing legacy version from newstyle installer")
+                        # A legacy version with an updated installer
+                        install_newstyle(ctx)
+                    else:
+                        logger.info("Installing with PicoForgeWrapper")
+                        install_113(ctx)
+        except:
+            shutil.rmtree(version_dir)
+            raise
 
 
 @click.group("forge")

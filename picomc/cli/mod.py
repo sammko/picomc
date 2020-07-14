@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import click
 
 from picomc import mod
@@ -31,8 +33,8 @@ def list_loaders(ctx, param, value):
 def loader_cli(ctx):
     ctx.ensure_object(dict)
 
-    ctx.obj["VERSIONS_ROOT"] = get_filepath("versions")
-    ctx.obj["LIBRARIES_ROOT"] = get_filepath("libraries")
+    ctx.obj["VERSIONS_ROOT"] = Path(get_filepath("versions"))
+    ctx.obj["LIBRARIES_ROOT"] = Path(get_filepath("libraries"))
     pass
 
 
