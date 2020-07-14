@@ -34,11 +34,6 @@ class Artifact:
 
     @classmethod
     def make(cls, descriptor):
-        # I don't know where the *va part comes from, it was already implemented
-        # before a refactor, unfortunately the reason was not documented.
-        # Currently I don't have a version in my versions directory which
-        # utilizes that.
-        # I am leaving it implemented, as there probably was motivation to do it.
         descriptor, *ext = descriptor.split("@")
         ext = ext[0] if ext else "jar"
         group, art_id, version, *class_ = descriptor.split(":")
