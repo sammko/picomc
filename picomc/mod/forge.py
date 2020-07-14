@@ -303,5 +303,20 @@ def install_cli(ctxo, name, forge_version, game, latest):
         logger.error(e)
 
 
+@forge_cli.command("version")
+@click.argument("forge_version", required=False)
+@click.option("--game", "-g", default=None)
+@click.option("--latest", "-l", is_flag=True)
+@click.pass_obj
+def version_cli(ctxo, forge_version, game, latest):
+    try:
+        game_version, forge_version, version = resolve_version(
+            game, forge_version, latest
+        )
+        logger.info(f"Found Forge version {forge_version} for Minecraft {game_version}")
+    except VersionError as e:
+        logger.error(e)
+
+
 def register_cli(root):
     root.add_command(forge_cli)
