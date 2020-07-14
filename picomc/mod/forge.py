@@ -280,6 +280,9 @@ def install(
 
 @click.group("forge")
 def forge_cli():
+    """The Forge loader.
+
+    Get more information about Forge at https://minecraftforge.net/"""
     pass
 
 
@@ -290,6 +293,15 @@ def forge_cli():
 @click.option("--latest", "-l", is_flag=True)
 @click.pass_obj
 def install_cli(ctxo, name, forge_version, game, latest):
+    """Installs Forge.
+
+    The best version is selected automatically based on the given parameters.
+    By default, only stable Forge versions are considered, use --latest to
+    enable beta versions as well.
+
+    You can install a specific version of forge using the FORGE_VERSION argument.
+    You can also choose the newest version for a specific version of Minecraft
+    using --game."""
     try:
         install(
             ctxo["VERSIONS_ROOT"],
@@ -309,6 +321,7 @@ def install_cli(ctxo, name, forge_version, game, latest):
 @click.option("--latest", "-l", is_flag=True)
 @click.pass_obj
 def version_cli(ctxo, forge_version, game, latest):
+    """Resolve version without installing."""
     try:
         game_version, forge_version, version = resolve_version(
             game, forge_version, latest

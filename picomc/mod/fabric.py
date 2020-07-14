@@ -117,6 +117,9 @@ def install(versions_root, game_version=None, loader_version=None, version_name=
 
 @click.group("fabric")
 def fabric_cli():
+    """The Fabric loader.
+
+    Find out more about Fabric at https://fabricmc.net/"""
     pass
 
 
