@@ -172,10 +172,19 @@ def save_vspec(ctx, vspec):
         json.dump(vspec, fd, indent=2)
 
 
+def copy_libraries(ctx):
+    libdir_relative = Artifact.make(ctx.install_profile["path"]).path.parent
+    srcdir = ctx.extract_dir / "maven" / libdir_relative
+    dstdir = ctx.libraries_dir / libdir_relative
+    dstdir.mkdir(parents=True, exist_ok=True)
+    for f in srcdir.iterdir():
+        shutil.copy2(f, dstdir)
+
+
 def install_newstyle(ctx: ForgeInstallContext):
     vspec = make_base_vspec(ctx)
     save_vspec(ctx, vspec)
-    shutil.copytree(ctx.extract_dir / "maven", ctx.libraries_dir, dirs_exist_ok=True)
+    copy_libraries(ctx)
 
 
 def install_113(ctx: ForgeInstallContext):
@@ -190,7 +199,7 @@ def install_113(ctx: ForgeInstallContext):
 
     save_vspec(ctx, vspec)
 
-    shutil.copytree(ctx.extract_dir / "maven", ctx.libraries_dir, dirs_exist_ok=True)
+    copy_libraries(ctx)
 
     installer_descriptor = f"net.minecraftforge:forge:{ctx.version}:installer"
     installer_libpath = ctx.libraries_dir / Artifact.make(installer_descriptor).path
