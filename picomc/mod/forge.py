@@ -282,8 +282,8 @@ def install(
                     else:
                         logger.info("Installing with PicoForgeWrapper")
                         install_113(ctx)
-        except:
-            shutil.rmtree(version_dir)
+        except:  # noqa E722
+            shutil.rmtree(version_dir, ignore_errors=True)
             raise
 
 
