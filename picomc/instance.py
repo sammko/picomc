@@ -119,7 +119,13 @@ class Instance:
             self, filter(attrgetter("is_native"), libraries)
         ) as natives_dir:
             self._exec_mc(
-                account, vobj, java, java_info, gamedir, libraries, natives_dir
+                account,
+                vobj,
+                java,
+                java_info,
+                gamedir,
+                filter(attrgetter("is_classpath"), libraries),
+                natives_dir,
             )
 
     def extract_natives(self):
@@ -131,11 +137,7 @@ class Instance:
         logger.info("Extracted natives to {}".format(ne.get_natives_path()))
 
     def _exec_mc(self, account, v, java, java_info, gamedir, libraries, natives):
-        libs = [
-            lib.get_abspath(get_filepath("libraries"))
-            for lib in libraries
-            if not lib.is_native
-        ]
+        libs = [lib.get_abspath(get_filepath("libraries")) for lib in libraries]
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
 

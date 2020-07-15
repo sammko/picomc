@@ -1,6 +1,6 @@
-import os
 import urllib.parse
 from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
 from platform import architecture
 from string import Template
 
@@ -9,22 +9,47 @@ from picomc.logging import logger
 
 
 @dataclass
-class LibraryArtifact:
+class Artifact:
     url: str
-    path: str
+    path: PurePosixPath
     sha1: str
     size: int
     filename: str
 
     @classmethod
     def from_json(cls, obj):
+        path = None
+        if "path" in obj:
+            path = PurePosixPath(obj["path"])
+        filename = None
+        if path:
+            filename = path.name
         return cls(
-            url=obj["url"],
-            path=obj["path"],
+            url=obj.get("url", None),
+            path=path,
             sha1=obj["sha1"],
             size=obj["size"],
-            filename=None,
+            filename=filename,
         )
+
+    @classmethod
+    def make(cls, descriptor):
+        descriptor, *ext = descriptor.split("@")
+        ext = ext[0] if ext else "jar"
+        group, art_id, version, *class_ = descriptor.split(":")
+        classifier = None
+        if class_:
+            classifier = class_[0]
+        group = group.replace(".", "/")
+        v2 = "-".join([version] + ([classifier] if classifier else []))
+
+        filename = f"{art_id}-{v2}.{ext}"
+        path = PurePosixPath(group) / art_id / version / filename
+
+        return cls(url=None, path=path, sha1=None, size=None, filename=filename)
+
+    def get_localpath(self, base):
+        return Path(base) / self.path
 
 
 class Library:
@@ -36,42 +61,43 @@ class Library:
 
     def _populate(self):
         js = self.json_lib
-        self.libname = js["name"]
+        self.descriptor = js["name"]
         self.is_native = "natives" in js
+        self.is_classpath = not (self.is_native or js.get("presenceOnly", False))
         self.base_url = js.get("url", Library.MOJANG_BASE_URL)
 
         self.available = True
 
-        self.native_suffix = ""
+        self.native_classifier = None
         if self.is_native:
             try:
                 classifier_tmpl = self.json_lib["natives"][Env.platform]
                 arch = architecture()[0][:2]
                 self.native_classifier = Template(classifier_tmpl).substitute(arch=arch)
-                self.native_suffix = "-" + self.native_classifier
+                self.descriptor = self.descriptor + ":" + self.native_classifier
             except KeyError:
                 logger.warning(
-                    f"Native {self.libname} is not available for current platform {Env.platform}."
+                    f"Native {self.descriptor} is not available for current platform {Env.platform}."
                 )
-                self.native_classifier = None
                 self.available = False
                 return
 
-        self.virt_artifact = self.make_virtual_artifact()
+        self.virt_artifact = Artifact.make(self.descriptor)
+        self.virt_artifact.url = urllib.parse.urljoin(
+            self.base_url, self.virt_artifact.path.as_posix()
+        )
         self.artifact = self.resolve_artifact()
 
         # Just use filename and path derived from the name.
-        self.filename = self.virt_artifact.url
+        self.filename = self.virt_artifact.filename
         self.path = self.virt_artifact.path
-
-        # Actual fs path
-        self.relpath = os.path.join(*self.path.split("/"))
 
         if self.artifact:
             final_art = self.artifact
 
             # Sanity check
-            assert self.virt_artifact.path == self.artifact.path
+            if self.artifact.path is not None:
+                assert self.virt_artifact.path == self.artifact.path
         else:
             final_art = self.virt_artifact
 
@@ -79,37 +105,24 @@ class Library:
         self.sha1 = final_art.sha1
         self.size = final_art.size
 
-    def make_virtual_artifact(self):
-        # I don't know where the *va part comes from, it was already implemented
-        # before a refactor, unfortunately the reason was not documented.
-        # Currently I don't have a version in my versions directory which
-        # utilizes that.
-        # I am leaving it implemented, as there probably was motivation to do it.
-        group, art_id, version, *va = self.libname.split(":")
-        group = group.replace(".", "/")
-        v2 = "-".join([version] + va)
-
-        filename = f"{art_id}-{v2}{self.native_suffix}.jar"
-        path = f"{group}/{art_id}/{version}/{filename}"
-        url = urllib.parse.urljoin(self.base_url, path)
-
-        return LibraryArtifact(
-            url=url, path=path, sha1=None, size=None, filename=filename
-        )
-
     def resolve_artifact(self):
         if self.is_native:
             if self.native_classifier is None:
                 # Native not available for current platform
                 return None
             else:
-                art = self.json_lib["downloads"]["classifiers"][self.native_classifier]
-                return LibraryArtifact.from_json(art)
+                try:
+                    art = self.json_lib["downloads"]["classifiers"][
+                        self.native_classifier
+                    ]
+                    return Artifact.from_json(art)
+                except KeyError:
+                    return None
         else:
             try:
-                return LibraryArtifact.from_json(self.json_lib["downloads"]["artifact"])
+                return Artifact.from_json(self.json_lib["downloads"]["artifact"])
             except KeyError:
                 return None
 
     def get_abspath(self, library_root):
-        return os.path.join(library_root, self.relpath)
+        return self.virt_artifact.get_localpath(library_root)

@@ -7,7 +7,7 @@ from picomc.logging import logger
 
 
 def join_classpath(*cp):
-    return os.pathsep.join(cp)
+    return os.pathsep.join(map(str, cp))
 
 
 def file_sha1(filename):
