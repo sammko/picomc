@@ -17,7 +17,7 @@ from picomc.cli.utils import pass_launcher
 from picomc.downloader import DownloadQueue
 from picomc.library import Artifact
 from picomc.logging import logger
-from picomc.utils import Directory, die
+from picomc.utils import Directory
 
 _loader_name = "forge"
 
@@ -43,7 +43,15 @@ FORGE_WRAPPER = {
 }
 
 
-class VersionError(Exception):
+class VersionResolutionError(Exception):
+    pass
+
+
+class AlreadyInstalledError(Exception):
+    pass
+
+
+class InstallationError(Exception):
     pass
 
 
@@ -76,7 +84,9 @@ def best_version_from_promos(promos, game_version=None):
         filter(lambda obj: obj["mcversion"] == game_version, promos)
     )
     if len(versions_for_game) == 0:
-        raise VersionError("No forge available for game version. Try using --latest.")
+        raise VersionResolutionError(
+            "No forge available for game version. Try using --latest."
+        )
     forge_version = max(
         map(itemgetter("version"), versions_for_game), key=_version_as_tuple
     )
@@ -89,7 +99,9 @@ def full_from_forge(all_versions, forge_version):
         gv, fv, *_ = v.split("-")
         if fv == forge_version:
             return gv, v
-    raise VersionError(f"Given Forge version ({forge_version}) does not exist")
+    raise VersionResolutionError(
+        f"Given Forge version ({forge_version}) does not exist"
+    )
 
 
 def resolve_version(game_version=None, forge_version=None, latest=False):
@@ -104,7 +116,7 @@ def resolve_version(game_version=None, forge_version=None, latest=False):
 
     found_game, full = full_from_forge(all_versions, forge_version)
     if game_version and found_game != game_version:
-        raise VersionError("Version mismatch")
+        raise VersionResolutionError("Version mismatch")
     game_version = found_game
 
     return game_version, forge_version, full
@@ -223,11 +235,12 @@ def install(
     if version_name is None:
         version_name = f"{game_version}-forge-{forge_version}"
 
-    logger.info(f"Installing Forge {version} as {version_name}")
-
     version_dir = os.path.join(versions_root, version_name)
     if os.path.exists(version_dir):
-        die(f"Version with name {version_name} already exists")
+        logger.info(f"Forge {version} already installed as {version_name}")
+        raise AlreadyInstalledError(f"Version with name {version_name} already exists")
+
+    logger.info(f"Installing Forge {version} as {version_name}")
 
     for line in (
         "As the Forge project is kept alive mostly thanks to ads on their downloads\n"
@@ -249,7 +262,7 @@ def install(
         dq.add(installer_url, installer_file)
         logger.info("Downloading installer")
         if not dq.download():
-            die("Failed to download installer.")
+            raise InstallationError("Failed to download installer.")
         os.mkdir(version_dir)
         try:
             os.mkdir(extract_dir)
@@ -283,6 +296,7 @@ def install(
                     else:
                         logger.info("Installing with PicoForgeWrapper")
                         install_113(ctx)
+            logger.info("Done installing Forge")
         except:  # noqa E722
             shutil.rmtree(version_dir, ignore_errors=True)
             raise
@@ -321,7 +335,7 @@ def install_cli(launcher, name, forge_version, game, latest):
             latest,
             version_name=name,
         )
-    except VersionError as e:
+    except (VersionResolutionError, InstallationError, AlreadyInstalledError) as e:
         logger.error(e)
 
 
@@ -336,7 +350,7 @@ def version_cli(forge_version, game, latest):
             game, forge_version, latest
         )
         logger.info(f"Found Forge version {forge_version} for Minecraft {game_version}")
-    except VersionError as e:
+    except VersionResolutionError as e:
         logger.error(e)
 
 
