@@ -7,16 +7,16 @@ import shutil
 import urllib.parse
 import urllib.request
 from functools import reduce
+from pathlib import PurePath
 
 import requests
 
 from picomc.downloader import DownloadQueue
-from picomc.env import Env, get_filepath
 from picomc.javainfo import get_java_info
 from picomc.library import Library
 from picomc.logging import logger
 from picomc.rules import match_ruleset
-from picomc.utils import die, file_sha1, recur_files
+from picomc.utils import Directory, die, file_sha1, recur_files
 
 
 class VersionType(enum.Flag):
@@ -119,29 +119,31 @@ class VersionSpec:
 class Version:
     ASSETS_URL = "http://resources.download.minecraft.net/"
 
-    def __init__(self, version_name, version_manager, version_manifest):
+    def __init__(self, version_name, launcher, version_manifest):
         self.version_name = version_name
-        self.version_manager = version_manager
+        self.launcher = launcher
+        self.vm = launcher.version_manager
         self.version_manifest = version_manifest
         self._libraries = dict()
 
+        self.versions_root = self.vm.versions_root
+        self.assets_root = self.launcher.get_path(Directory.ASSETS)
+
         self.raw_vspec = self.get_raw_vspec()
-        self.vspec = VersionSpec(self, self.version_manager)
+        self.vspec = VersionSpec(self, self.vm)
 
         if self.vspec.assetIndex is not None:
             self.raw_asset_index = self.get_raw_asset_index(self.vspec.assetIndex)
 
         self.jarname = self.vspec.jar
-        self.jarfile = get_filepath(
-            "versions", self.jarname, "{}.jar".format(self.jarname)
-        )
+        self.jarfile = self.versions_root / self.jarname / "{}.jar".format(self.jarname)
 
     def get_raw_vspec(self):
-        vspec_path = get_filepath(
-            "versions", self.version_name, "{}.json".format(self.version_name)
+        vspec_path = (
+            self.versions_root / self.version_name / "{}.json".format(self.version_name)
         )
         if not self.version_manifest:
-            if os.path.exists(vspec_path):
+            if vspec_path.exists():
                 logger.debug("Found custom vspec ({})".format(self.version_name))
                 with open(vspec_path) as fp:
                     return json.load(fp)
@@ -154,7 +156,7 @@ class Version:
         url_split = urllib.parse.urlsplit(url)
         sha1 = posixpath.basename(posixpath.dirname(url_split.path))
 
-        if os.path.exists(vspec_path) and file_sha1(vspec_path) == sha1:
+        if vspec_path.exists() and file_sha1(vspec_path) == sha1:
             logger.debug(
                 "Using cached vspec files, hash matches manifest ({})".format(
                     self.version_name
@@ -166,8 +168,7 @@ class Version:
         try:
             logger.debug("Downloading vspec file")
             raw = requests.get(url).content
-            dirpath = os.path.dirname(vspec_path)
-            os.makedirs(dirpath, exist_ok=True)
+            vspec_path.parent.mkdir(parents=True, exist_ok=True)
             with open(vspec_path, "wb") as fp:
                 fp.write(raw)
             j = json.loads(raw)
@@ -179,8 +180,8 @@ class Version:
         iid = asset_index_spec["id"]
         url = asset_index_spec["url"]
         sha1 = asset_index_spec["sha1"]
-        fpath = get_filepath("assets", "indexes", "{}.json".format(iid))
-        if os.path.exists(fpath) and file_sha1(fpath) == sha1:
+        fpath = self.launcher.get_path(Directory.ASSET_INDEXES, "{}.json".format(iid))
+        if fpath.exists() and file_sha1(fpath) == sha1:
             logger.debug("Using cached asset index, hash matches vspec")
             with open(fpath) as fp:
                 return json.load(fp)
@@ -194,8 +195,8 @@ class Version:
             die("Failed to retrieve asset index.")
 
     def get_raw_asset_index_nodl(self, id_):
-        fpath = get_filepath("assets", "indexes", "{}.json".format(id_))
-        if os.path.exists(fpath):
+        fpath = self.launcher.get_path(Directory.ASSET_INDEXES, "{}.json".format(id_))
+        if fpath.exists():
             with open(fpath) as fp:
                 return json.load(fp)
         else:
@@ -228,14 +229,14 @@ class Version:
         dlspec = self.vspec.downloads.get("client", None)
         if dlspec is None:
             logger.debug("jarfile dlspec not availble, skipping hash check.")
-            if not os.path.exists(self.jarfile):
+            if not self.jarfile.exists():
                 die("jarfile does not exist and can not be downloaded.")
             return
 
         logger.debug("Checking jarfile.")
         if (
             force
-            or not os.path.exists(self.jarfile)
+            or not self.jarfile.exists()
             # The fabric-installer places an empty jarfile here, due to some
             # quirk of an old (git blame 2 years) version of the vanilla launcher.
             # https://github.com/FabricMC/fabric-installer/blob/master/src/main/java/net/fabricmc/installer/client/ClientInstaller.java#L49
@@ -254,14 +255,14 @@ class Version:
         for library in self.get_libraries(java_info):
             if not library.available:
                 continue
-            basedir = get_filepath("libraries")
+            basedir = self.launcher.get_path(Directory.LIBRARIES)
             abspath = library.get_abspath(basedir)
-            ok = os.path.isfile(abspath) and os.path.getsize(abspath) > 0
+            ok = abspath.is_file() and os.path.getsize(abspath) > 0
             if verify_hashes and library.sha1 is not None:
                 ok = ok and file_sha1(abspath) == library.sha1
             if not ok and not library.url:
                 logger.error(
-                    f"Library {library.libname} is missing or corrupt and has no download url."
+                    f"Library {library.filename} is missing or corrupt and has no download url."
                 )
                 continue
             if force or not ok:
@@ -280,21 +281,23 @@ class Version:
     def _populate_virtual_assets(self, asset_index, where):
         for name, obj in asset_index["objects"].items():
             sha = obj["hash"]
-            objpath = get_filepath("assets", "objects", sha[0:2], sha)
-            path = os.path.join(where, *name.split("/"))
+            objpath = self.launcher.get_path(Directory.ASSET_OBJECTS, sha[0:2], sha)
+            path = where / PurePath(*name.split("/"))
             # Maybe check file hash first? Would that be faster?
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            shutil.copy(get_filepath(objpath), os.path.join(where, path))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(objpath, path)
 
     def get_virtual_asset_path(self):
-        return get_filepath("assets", "virtual", self.vspec.assetIndex["id"])
+        return self.launcher.get_path(
+            Directory.ASSET_VIRTUAL, self.vspec.assetIndex["id"]
+        )
 
     def prepare_assets_launch(self, gamedir):
         launch_asset_index = self.get_raw_asset_index_nodl(self.vspec.assets)
         is_map_resources = launch_asset_index.get("map_to_resources", False)
         if is_map_resources:
             logger.info("Mapping resources")
-            where = os.path.join(gamedir, "resources")
+            where = gamedir / "resources"
             logger.debug("Resources path: {}".format(where))
             self._populate_virtual_assets(launch_asset_index, where)
 
@@ -309,11 +312,11 @@ class Version:
 
         is_virtual = self.raw_asset_index.get("virtual", False)
 
-        fileset = set(recur_files(get_filepath("assets")))
+        fileset = set(recur_files(self.assets_root))
         q = DownloadQueue()
-        objpath = get_filepath("assets", "objects")
+        objpath = self.launcher.get_path(Directory.ASSET_OBJECTS)
         for sha in hashes:
-            abspath = os.path.join(objpath, sha[0:2], sha)
+            abspath = objpath / sha[0:2] / sha
             ok = abspath in fileset  # file exists
             if verify_hashes:
                 ok = ok and file_sha1(abspath) == sha
@@ -336,7 +339,7 @@ class Version:
 
     def prepare(self, java_info=None, verify_hashes=False):
         if not java_info:
-            java_info = get_java_info(Env.gconf.get("java.path"))
+            java_info = get_java_info(self.launcher.global_config.get("java.path"))
         self.download_libraries(java_info, verify_hashes)
         if hasattr(self, "raw_asset_index"):
             self.download_assets(verify_hashes)
@@ -349,7 +352,9 @@ class Version:
 class VersionManager:
     MANIFEST_URL = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
 
-    def __init__(self):
+    def __init__(self, launcher):
+        self.launcher = launcher
+        self.versions_root = launcher.get_path(Directory.VERSIONS)
         self.manifest = self.get_manifest()
 
     def resolve_version_name(self, v):
@@ -363,7 +368,7 @@ class VersionManager:
         return v
 
     def get_manifest(self):
-        manifest_filepath = get_filepath("versions", "manifest.json")
+        manifest_filepath = self.launcher.get_path(Directory.VERSIONS, "manifest.json")
         try:
             m = requests.get(self.MANIFEST_URL).json()
             with open(manifest_filepath, "w") as mfile:
@@ -385,14 +390,10 @@ class VersionManager:
     def version_list(self, vtype=VersionType.RELEASE, local=False):
         r = [v["id"] for v in self.manifest["versions"] if vtype.match(v["type"])]
         if local:
-            import os
-
-            version_dir = get_filepath("versions")
             r += sorted(
-                "{} [local]".format(name)
-                for name in os.listdir(version_dir)
-                if not name.startswith(".")
-                and os.path.isdir(os.path.join(version_dir, name))
+                "{} [local]".format(path.name)
+                for path in self.versions_root.iterdir()
+                if not path.name.startswith(".") and path.is_dir()
             )
         return r
 
@@ -403,4 +404,4 @@ class VersionManager:
             if ver["id"] == name:
                 version_manifest = ver
                 break
-        return Version(name, self, version_manifest)
+        return Version(name, self.launcher, version_manifest)

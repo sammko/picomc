@@ -1,9 +1,8 @@
-from pathlib import Path
-
 import click
 
 from picomc import mod
-from picomc.env import get_filepath
+from picomc.cli.utils import pass_launcher
+from picomc.utils import Directory
 
 
 @click.group()
@@ -30,8 +29,9 @@ def list_loaders(ctx, param, value):
     callback=list_loaders,
     help="List available mod loaders",
 )
+@pass_launcher
 @click.pass_context
-def loader_cli(ctx):
+def loader_cli(ctx, launcher):
     """Manage mod loaders.
 
     Loaders are customized Minecraft
@@ -39,9 +39,8 @@ def loader_cli(ctx):
     Installing a loader creates a new version which can be used by instances."""
     ctx.ensure_object(dict)
 
-    ctx.obj["VERSIONS_ROOT"] = Path(get_filepath("versions"))
-    ctx.obj["LIBRARIES_ROOT"] = Path(get_filepath("libraries"))
-    pass
+    ctx.obj["VERSIONS_ROOT"] = launcher.get_path(Directory.VERSIONS)
+    ctx.obj["LIBRARIES_ROOT"] = launcher.get_path(Directory.LIBRARIES)
 
 
 for loader in mod.LOADERS:

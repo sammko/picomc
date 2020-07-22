@@ -5,7 +5,7 @@ import urllib.parse
 
 import click
 
-from picomc.env import Env
+from picomc.cli.utils import pass_version_manager
 from picomc.logging import logger
 from picomc.utils import die, file_sha1
 from picomc.version import VersionType
@@ -13,9 +13,10 @@ from picomc.version import VersionType
 
 def version_cmd(fn):
     @click.argument("version_name")
+    @pass_version_manager
     @functools.wraps(fn)
-    def inner(*args, version_name, **kwargs):
-        return fn(*args, version=Env.vm.get_version(version_name), **kwargs)
+    def inner(vm, *args, version_name, **kwargs):
+        return fn(*args, version=vm.get_version(version_name), **kwargs)
 
     return inner
 
@@ -33,7 +34,8 @@ def version_cli():
 @click.option("--beta", is_flag=True, default=False)
 @click.option("--local", is_flag=True, default=False)
 @click.option("--all", is_flag=True, default=False)
-def list(release, snapshot, alpha, beta, local, all):
+@pass_version_manager
+def list(vm, release, snapshot, alpha, beta, local, all):
     """List available Minecraft versions."""
     if all:
         release = snapshot = alpha = beta = local = True
@@ -44,13 +46,13 @@ def list(release, snapshot, alpha, beta, local, all):
         )
         local = True
     T = VersionType.create(release, snapshot, alpha, beta)
-    versions = Env.vm.version_list(vtype=T, local=local)
+    versions = vm.version_list(vtype=T, local=local)
     print("\n".join(versions))
 
 
 @version_cli.command()
-@click.option("--verify", is_flag=True, default=False)
 @version_cmd
+@click.option("--verify", is_flag=True, default=False)
 def prepare(version, verify):
     """Download required files for the version."""
     version.prepare(verify_hashes=verify)

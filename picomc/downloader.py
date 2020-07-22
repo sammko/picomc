@@ -10,7 +10,7 @@ import certifi
 import urllib3
 from tqdm import tqdm
 
-from picomc.env import Env
+import picomc.logging
 from picomc.logging import logger
 
 
@@ -80,7 +80,7 @@ def downloader_urllib3(q, size=None, workers=16):
         resp.release_conn()
         return len(resp.data)
 
-    disable_progressbar = Env.debug
+    disable_progressbar = picomc.logging.debug
 
     if have_size:
         cm_progressbar = tqdm(

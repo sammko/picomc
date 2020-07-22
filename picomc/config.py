@@ -1,29 +1,47 @@
 import json
 import os
+from contextlib import AbstractContextManager
 
-from picomc.env import get_filepath
 from picomc.logging import logger
+from picomc.utils import cached_property
 
 
-class CommitManager:
-    def __init__(self):
+def get_default_config():
+    return {
+        "java.path": "java",
+        "java.memory.min": "512M",
+        "java.memory.max": "2G",
+        "java.jvmargs": "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M",
+    }
+
+
+class ConfigManager(AbstractContextManager):
+    def __init__(self, root):
         self.configs = dict()
+        self.root = root
 
-    def add(self, config):
-        self.configs[id(config)] = config
+    @cached_property
+    def global_config(self):
+        return self.get("config.json", bottom=get_default_config())
 
-    def remove(self, config):
-        del self.configs[id(config)]
+    def __exit__(self, type, value, traceback):
+        self.commit_all_dirty()
+
+    def get(self, path, bottom={}, init={}):
+        abspath = os.path.join(self.root, path)
+        if abspath in self.configs:
+            return self.configs[abspath]
+        conf = Config(abspath, bottom=bottom, init=init)
+        self.configs[abspath] = conf
+        return conf
+
+    def get_instance_config(self, path):
+        return self.get(path, bottom=self.global_config)
 
     def commit_all_dirty(self):
         logger.debug("Commiting all dirty configs")
-        for _, conf in self.configs.items():
+        for conf in self.configs.values():
             conf.save_if_dirty()
-
-    def commit_all(self):
-        logger.debug("Commiting all configs")
-        for _, conf in self.configs.items():
-            conf.save()
 
 
 class OverlayDict(dict):
@@ -48,7 +66,7 @@ class OverlayDict(dict):
 class Config(OverlayDict):
     def __init__(self, config_file, bottom={}, init={}):
         super().__init__(init=init, bottom=bottom)
-        self.filepath = get_filepath(config_file)
+        self.filepath = config_file
         self.dirty = not self.load()
 
     # TODO This way of detecting dirtyness is not good enough, as for example

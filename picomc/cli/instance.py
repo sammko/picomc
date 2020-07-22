@@ -3,18 +3,9 @@ import functools
 import click
 
 from picomc.account import AccountError
-from picomc.env import Env, get_filepath
-from picomc.instance import Instance
+from picomc.cli.utils import pass_account_manager, pass_instance_manager, pass_launcher
 from picomc.logging import logger
-from picomc.utils import die, sanitize_name
-
-
-def instance_list():
-    import os
-
-    yield from (
-        name for name in os.listdir(get_filepath("instances")) if Instance.exists(name)
-    )
+from picomc.utils import Directory, die, sanitize_name
 
 
 def instance_cmd(fn):
@@ -35,27 +26,29 @@ def instance_cli():
 @instance_cli.command()
 @instance_cmd
 @click.argument("version", default="latest")
-def create(instance_name, version):
+@pass_instance_manager
+def create(im, instance_name, version):
     """Create a new instance."""
-    if Instance.exists(instance_name):
+    if im.exists(instance_name):
         logger.error("An instance with that name already exists.")
         return
-    with Instance(instance_name) as inst:
-        inst.populate(version)
+    im.create(instance_name, version)
 
 
 @instance_cli.command()
-def list():
+@pass_instance_manager
+def list(im):
     """Show a list of instances."""
-    print("\n".join(instance_list()))
+    print("\n".join(im.list()))
 
 
 @instance_cli.command()
 @instance_cmd
-def delete(instance_name):
+@pass_instance_manager
+def delete(im, instance_name):
     """Delete the instance (from disk)."""
-    if Instance.exists(instance_name):
-        Instance.delete(instance_name)
+    if im.exists(instance_name):
+        im.delete(instance_name)
     else:
         logger.error("No such instance exists.")
 
@@ -65,63 +58,71 @@ def delete(instance_name):
 @click.option("--verify", is_flag=True, default=False)
 @click.option("--account", default=None)
 @click.option("--version-override", default=None)
-def launch(instance_name, account, version_override, verify):
+@pass_instance_manager
+@pass_account_manager
+def launch(am, im, instance_name, account, version_override, verify):
     """Launch the instance."""
     if account is None:
-        account = Env.am.get_default()
+        account = am.get_default()
     else:
-        account = Env.am.get(account)
-    if not Instance.exists(instance_name):
+        account = am.get(account)
+    if not im.exists(instance_name):
         logger.error("No such instance exists.")
         return
-    with Instance(instance_name) as inst:
-        try:
-            inst.launch(account, version_override, verify_hashes=verify)
-        except AccountError as e:
-            logger.error("Not launching due to account error: {}".format(e))
+    inst = im.get(instance_name)
+    try:
+        inst.launch(account, version_override, verify_hashes=verify)
+    except AccountError as e:
+        logger.error("Not launching due to account error: {}".format(e))
 
 
 @instance_cli.command("natives")
 @instance_cmd
-def extract_natives(instance_name):
+@pass_instance_manager
+def extract_natives(im, instance_name):
     """Extract natives and leave them on disk"""
-    if not Instance.exists(instance_name):
+    if not im.exists(instance_name):
         die("No such instance exists.")
-    with Instance(instance_name) as inst:
-        inst.extract_natives()
+    inst = im.get(instance_name)
+    inst.extract_natives()
 
 
 @instance_cli.command("dir")
-@instance_cmd
-def _dir(instance_name):
+@click.argument("instance_name", required=False)
+@pass_instance_manager
+@pass_launcher
+def _dir(launcher, im, instance_name):
     """Print root directory of instance."""
     if not instance_name:
-        print(get_filepath("instances"))
+        # TODO
+        print(launcher.get_path(Directory.INSTANCES))
     else:
-        # Careful, if configurable instance dirs are added, this breaks.
-        print(get_filepath("instances", instance_name))
+        instance_name = sanitize_name(instance_name)
+        print(im.get_root(instance_name))
 
 
 @instance_cli.command("rename")
 @instance_cmd
 @click.argument("new_name")
-def rename(instance_name, new_name):
+@pass_instance_manager
+def rename(im, instance_name, new_name):
     new_name = sanitize_name(new_name)
-    if Instance.exists(instance_name):
-        if Instance.exists(new_name):
+    if im.exists(instance_name):
+        if im.exists(new_name):
             die("Instance with target name already exists.")
-        Instance.rename(instance_name, new_name)
+        im.rename(instance_name, new_name)
     else:
         die("No such instance exists.")
 
 
 @instance_cli.group("config")
 @instance_cmd
+@pass_instance_manager
 @click.pass_context
-def config_cli(ctx, instance_name):
+def config_cli(ctx, im, instance_name):
     """Configure an instance."""
-    if Instance.exists(instance_name):
-        ctx.obj = Env.estack.enter_context(Instance(instance_name)).config
+    if im.exists(instance_name):
+        ctx.obj = im.get(instance_name).config
     else:
         die("No such instance exists.")
 

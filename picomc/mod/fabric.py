@@ -1,5 +1,4 @@
 import json
-import os
 import urllib.parse
 from datetime import datetime, timezone
 
@@ -96,8 +95,8 @@ def install(versions_root, game_version=None, loader_version=None, version_name=
     if version_name is None:
         version_name = "{}-{}-{}".format(LOADER_NAME, loader_version, game_version)
 
-    version_dir = os.path.join(versions_root, version_name)
-    if os.path.exists(version_dir):
+    version_dir = versions_root / version_name
+    if version_dir.exists():
         die(f"Version with name {version_name} already exists")
 
     msg = f"Installing Fabric version {loader_version}-{game_version}"
@@ -110,8 +109,8 @@ def install(versions_root, game_version=None, loader_version=None, version_name=
         version_name, loader_obj, loader_version, game_version
     )
 
-    os.mkdir(version_dir)
-    with open(os.path.join(version_dir, f"{version_name}.json"), "w") as fd:
+    version_dir.mkdir()
+    with open(version_dir / f"{version_name}.json", "w") as fd:
         json.dump(vspec_obj, fd, indent=2)
 
 

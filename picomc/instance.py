@@ -4,21 +4,31 @@ import shutil
 import subprocess
 import zipfile
 from operator import attrgetter
+from pathlib import Path
 from string import Template
 from tempfile import mkdtemp
 
 import requests
 
 import picomc
-from picomc.config import Config
-from picomc.env import Env, assert_java, get_filepath
+from picomc import logging
+from picomc.javainfo import assert_java
 from picomc.logging import logger
 from picomc.rules import match_ruleset
-from picomc.utils import join_classpath, sanitize_name
+from picomc.utils import Directory, join_classpath, sanitize_name
+
+
+class InstanceError(Exception):
+    pass
+
+
+class InstanceNotFoundError(InstanceError):
+    pass
 
 
 class NativesExtractor:
-    def __init__(self, instance, natives):
+    def __init__(self, libraries_root, instance, natives):
+        self.libraries_root = libraries_root
         self.instance = instance
         self.natives = natives
         self.ndir = mkdtemp(prefix="natives-", dir=instance.get_relpath())
@@ -29,7 +39,7 @@ class NativesExtractor:
     def extract(self):
         dedup = set()
         for library in self.natives:
-            fullpath = library.get_abspath(get_filepath("libraries"))
+            fullpath = library.get_abspath(self.libraries_root)
             if fullpath in dedup:
                 logger.debug(
                     "Skipping duplicate natives archive: " "{}".format(fullpath)
@@ -71,29 +81,31 @@ def process_arguments(arguments_dict, java_info):
 
 
 class Instance:
-    def __init__(self, name):
+    def __init__(self, launcher, root, name):
+        self.instance_manager = launcher.instance_manager
+        self.launcher = launcher
+
         self.name = sanitize_name(name)
-        self.directory = get_filepath("instances", self.name)
-
-    def __enter__(self):
-        self.config = Config(self.get_relpath("config.json"), bottom=Env.gconf)
-        Env.commit_manager.add(self.config)
-        return self
-
-    def __exit__(self, ext_type, exc_value, traceback):
-        pass
+        self.libraries_root = self.launcher.get_path(Directory.LIBRARIES)
+        self.assets_root = self.launcher.get_path(Directory.ASSETS)
+        self.directory = root
+        self.config = self.launcher.config_manager.get_instance_config(
+            Path("instances", Path(self.name), "config.json")
+        )
 
     def get_relpath(self, rel=""):
-        return os.path.join(self.directory, rel)
+        return self.directory / rel
 
     def get_java(self):
         return self.config["java.path"]
 
-    def populate(self, version):
+    def set_version(self, version):
         self.config["version"] = version
 
     def launch(self, account, version=None, verify_hashes=False):
-        vobj = Env.vm.get_version(version or self.config["version"])
+        vobj = self.launcher.version_manager.get_version(
+            version or self.config["version"]
+        )
         logger.info("Launching instance: {}".format(self.name))
         if version or vobj.version_name == self.config["version"]:
             logger.info("Using version: {}".format(vobj.version_name))
@@ -114,9 +126,9 @@ class Instance:
         vobj.prepare_launch(gamedir, java_info, verify_hashes)
         # Do this here so that configs are not needlessly overwritten after
         # the game quits
-        Env.commit_manager.commit_all_dirty()
+        self.launcher.config_manager.commit_all_dirty()
         with NativesExtractor(
-            self, filter(attrgetter("is_native"), libraries)
+            self.libraries_root, self, filter(attrgetter("is_native"), libraries)
         ) as natives_dir:
             self._exec_mc(
                 account,
@@ -129,15 +141,17 @@ class Instance:
             )
 
     def extract_natives(self):
-        vobj = Env.vm.get_version(self.config["version"])
+        vobj = self.launcher.version_manager.get_version(self.config["version"])
         java_info = assert_java(self.get_java())
         libs = vobj.get_libraries(java_info)
-        ne = NativesExtractor(self, filter(attrgetter("is_native"), libs))
+        ne = NativesExtractor(
+            self.libraries_root, self, filter(attrgetter("is_native"), libs)
+        )
         ne.extract()
         logger.info("Extracted natives to {}".format(ne.get_natives_path()))
 
     def _exec_mc(self, account, v, java, java_info, gamedir, libraries, natives):
-        libs = [lib.get_abspath(get_filepath("libraries")) for lib in libraries]
+        libs = [lib.get_abspath(self.libraries_root) for lib in libraries]
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
 
@@ -184,7 +198,7 @@ class Instance:
                 version_type=version_type,
                 version_name=v.version_name,
                 game_directory=gamedir,
-                assets_root=get_filepath("assets"),
+                assets_root=self.assets_root,
                 assets_index_name=v.vspec.assets,
                 game_assets=v.get_virtual_asset_path(),
             )
@@ -197,25 +211,46 @@ class Instance:
         my_jvm_args += shlex.split(self.config["java.jvmargs"])
 
         fargs = [java] + sjvmargs + my_jvm_args + [mc] + smcargs
-        if Env.debug:
+        if logging.debug:
             logger.debug("Launching: " + " ".join(fargs))
         else:
             logger.info("Launching the game")
         subprocess.run(fargs, cwd=gamedir)
 
-    @classmethod
-    def exists(cls, name):
-        inst = cls(name)
-        return os.path.exists(inst.get_relpath("config.json"))
 
-    @staticmethod
-    def delete(name):
-        shutil.rmtree(get_filepath("instances", name))
+class InstanceManager:
+    def __init__(self, launcher):
+        self.launcher = launcher
+        self.instances_root = launcher.get_path(Directory.INSTANCES)
 
-    @staticmethod
-    def rename(old, new):
-        oldpath = get_filepath("instances", old)
-        newpath = get_filepath("instances", new)
+    def get_root(self, name):
+        return self.instances_root / name
+
+    def get(self, name):
+        if not self.exists(name):
+            raise InstanceNotFoundError(name)
+        return Instance(self.launcher, self.get_root(name), name)
+
+    def exists(self, name):
+        return os.path.exists(self.get_root(name) / "config.json")
+
+    def list(self):
+        return (name for name in os.listdir(self.instances_root) if self.exists(name))
+
+    def create(self, name, version):
+        iroot = self.get_root(name)
+        os.mkdir(iroot)
+        inst = Instance(self.launcher, iroot, name)
+        inst.set_version(version)
+        inst.config.save()
+        return inst
+
+    def delete(self, name):
+        shutil.rmtree(self.get_root(name))
+
+    def rename(self, old, new):
+        oldpath = self.get_root(old)
+        newpath = self.get_root(new)
         assert not os.path.exists(newpath)
         assert os.path.exists(oldpath)
         shutil.move(oldpath, newpath)

@@ -1,7 +1,7 @@
 import re
 
-from picomc.env import Env, get_os_arch, get_os_version
 from picomc.logging import logger
+from picomc.osinfo import osinfo
 
 
 def match_rule(rule, java_info):
@@ -15,14 +15,13 @@ def match_rule(rule, java_info):
         return False
 
     if "os" in rule:
-        os_version = get_os_version(java_info)
-        os_arch = get_os_arch()
+        os_version = osinfo.get_os_version(java_info)
 
         osmatch = True
         if "name" in rule["os"]:
-            osmatch = osmatch and rule["os"]["name"] == Env.platform
+            osmatch = osmatch and rule["os"]["name"] == osinfo.platform
         if "arch" in rule["os"]:
-            osmatch = osmatch and re.match(rule["os"]["arch"], os_arch)
+            osmatch = osmatch and re.match(rule["os"]["arch"], osinfo.arch)
         if "version" in rule["os"]:
             osmatch = osmatch and re.match(rule["os"]["version"], os_version)
         return osmatch

@@ -1,7 +1,5 @@
 import uuid
 
-from picomc.config import Config
-from picomc.env import Env
 from picomc.logging import logger
 from picomc.yggdrasil import MojangYggdrasil, RefreshError
 
@@ -26,10 +24,13 @@ class Account:
     def to_dict(self):
         return {k: getattr(self, k) for k in self.DEFAULTS.keys()}
 
+    def save(self):
+        self._am.save(self)
+
     @classmethod
-    def from_config(cls, name, config):
+    def from_config(cls, am, name, config):
         c = OnlineAccount if config.get("online", False) else OfflineAccount
-        return c(name=name, **config)
+        return c(name=name, _am=am, **config)
 
 
 class OfflineAccount(Account):
@@ -66,7 +67,7 @@ class OnlineAccount(Account):
         return cls(name=name, username=username)
 
     def validate(self):
-        r = Env.am.yggdrasil.validate(self.access_token)
+        r = self._am.yggdrasil.validate(self.access_token)
         if r:
             self.fresh = True
         return r
@@ -79,7 +80,7 @@ class OnlineAccount(Account):
                 return
             else:
                 try:
-                    refresh = Env.am.yggdrasil.refresh(self.access_token)
+                    refresh = self._am.yggdrasil.refresh(self.access_token)
                     self.access_token, self.uuid, self.gname = refresh
                     self.fresh = True
                     return True
@@ -90,16 +91,17 @@ class OnlineAccount(Account):
                     self.is_authenticated = False
                     raise e
                 finally:
-                    Env.am.save(self)
+                    self.save()
         else:
             raise AccountError("Not authenticated.")
 
     def authenticate(self, password):
-        self.access_token, self.uuid, self.gname = Env.am.yggdrasil.authenticate(
+        self.access_token, self.uuid, self.gname = self._am.yggdrasil.authenticate(
             self.username, password
         )
         self.is_authenticated = True
         self.fresh = True
+        self.save()
 
 
 class AccountError(ValueError):
@@ -115,23 +117,18 @@ DEFAULT_CONFIG = {
 
 
 class AccountManager:
-    cfg_file = "accounts.json"
+    CONFIG_FILE = "accounts.json"
 
-    def __enter__(self):
-        self.config = Config(self.cfg_file, init=DEFAULT_CONFIG)
-        Env.commit_manager.add(self.config)
+    def __init__(self, launcher):
+        self.config = launcher.config_manager.get(self.CONFIG_FILE, init=DEFAULT_CONFIG)
         self.yggdrasil = MojangYggdrasil(self.config["client_token"])
-        return self
-
-    def __exit__(self, ext_type, exc_value, traceback):
-        pass
 
     def list(self):
         return self.config["accounts"].keys()
 
     def get(self, name):
         try:
-            acc = Account.from_config(name, self.config["accounts"][name])
+            acc = Account.from_config(self, name, self.config["accounts"][name])
             acc.is_default = self.config["default"] == name
             return acc
         except KeyError as ke:
@@ -153,7 +150,7 @@ class AccountManager:
         self.config["default"] = account.name
 
     def add(self, account):
-        if Env.am.exists(account.name):
+        if self.exists(account.name):
             raise AccountError("An account already exists with that name.")
         if not self.config["default"] and not self.config["accounts"]:
             self.config["default"] = account.name

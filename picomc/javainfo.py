@@ -1,5 +1,8 @@
 import subprocess
 
+from picomc.logging import logger
+from picomc.utils import die
+
 
 def get_java_info(java):
     """Parse the output of `java -XshowSettings:properties -version` and return
@@ -51,3 +54,36 @@ def get_java_info(java):
 def get_java_version(java):
     ret = subprocess.run([java, "-version"], capture_output=True)
     return ret.stderr.decode("utf8").splitlines()[0]
+
+
+def assert_java(java):
+    try:
+        jinfo = get_java_info(java)
+        jver = get_java_version(java)
+        badjv = False
+        if jinfo:
+            badjv = not jinfo["java.version"].decode("ascii").startswith("1.8.0")
+            bitness = jinfo.get("sun.arch.data.model", None).decode("ascii")
+            if bitness and bitness != "64":
+                logger.warning(
+                    "You are not using 64-bit java. Things will probably not work."
+                )
+        else:
+            badjv = "1.8.0_" not in jver
+
+        logger.info("Using java version: {}".format(jver))
+
+        if badjv:
+            logger.warning(
+                "Minecraft uses java 1.8.0 by default."
+                " You may experience issues, especially with older versions of Minecraft."
+            )
+
+        return jinfo
+
+    except FileNotFoundError:
+        die(
+            "Could not execute java at: {}. Have you installed it? Is it in yout PATH?".format(
+                java
+            )
+        )

@@ -1,7 +1,9 @@
 import hashlib
 import os
 import sys
+from enum import Enum, auto
 from functools import partial
+from pathlib import Path
 
 from picomc.logging import logger
 
@@ -27,7 +29,31 @@ def sanitize_name(name):
     return name.replace("..", "_").replace("/", "_")
 
 
-def recur_files(path):
+def recur_files(path: Path):
     for dirpath, dirnames, filenames in os.walk(path):
         for f in filenames:
-            yield os.path.join(dirpath, f)
+            yield Path(dirpath) / f
+
+
+class Directory(Enum):
+    ASSETS = auto()
+    ASSET_INDEXES = auto()
+    ASSET_OBJECTS = auto()
+    ASSET_VIRTUAL = auto()
+    INSTANCES = auto()
+    LIBRARIES = auto()
+    VERSIONS = auto()
+
+
+class CachedProperty:
+    def __init__(self, fn):
+        self.fn = fn
+
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self
+        value = obj.__dict__[self.fn.__name__] = self.fn(obj)
+        return value
+
+
+cached_property = CachedProperty

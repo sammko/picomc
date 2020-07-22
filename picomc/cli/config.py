@@ -1,6 +1,6 @@
 import click
 
-from picomc.env import Env
+from picomc.cli.utils import pass_global_config
 
 
 @click.group()
@@ -10,40 +10,44 @@ def config_cli():
 
 
 @config_cli.command()
-def show():
+@pass_global_config
+def show(cfg):
     """Print the current config."""
 
-    for k, v in Env.gconf.bottom.items():
-        if k not in Env.gconf:
+    for k, v in cfg.bottom.items():
+        if k not in cfg:
             print("[default] {}: {}".format(k, v))
-    for k, v in Env.gconf.items():
+    for k, v in cfg.items():
         print("{}: {}".format(k, v))
 
 
 @config_cli.command("set")
 @click.argument("key")
 @click.argument("value")
-def _set(key, value):
+@pass_global_config
+def _set(cfg, key, value):
     """Set a global config value."""
-    Env.gconf[key] = value
+    cfg[key] = value
 
 
 @config_cli.command()
 @click.argument("key")
-def get(key):
+@pass_global_config
+def get(cfg, key):
     """Print a global config value."""
     try:
-        print(Env.gconf[key])
+        print(cfg[key])
     except KeyError:
         print("No such item.")
 
 
 @config_cli.command()
 @click.argument("key")
-def delete(key):
+@pass_global_config
+def delete(cfg, key):
     """Delete a key from the global config."""
     try:
-        del Env.gconf[key]
+        del cfg[key]
     except KeyError:
         print("No such item.")
 

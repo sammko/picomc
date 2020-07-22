@@ -4,8 +4,8 @@ from pathlib import Path, PurePosixPath
 from platform import architecture
 from string import Template
 
-from picomc.env import Env
 from picomc.logging import logger
+from picomc.osinfo import osinfo
 
 
 @dataclass
@@ -71,13 +71,13 @@ class Library:
         self.native_classifier = None
         if self.is_native:
             try:
-                classifier_tmpl = self.json_lib["natives"][Env.platform]
+                classifier_tmpl = self.json_lib["natives"][osinfo.platform]
                 arch = architecture()[0][:2]
                 self.native_classifier = Template(classifier_tmpl).substitute(arch=arch)
                 self.descriptor = self.descriptor + ":" + self.native_classifier
             except KeyError:
                 logger.warning(
-                    f"Native {self.descriptor} is not available for current platform {Env.platform}."
+                    f"Native {self.descriptor} is not available for current platform {osinfo.platform}."
                 )
                 self.available = False
                 return
