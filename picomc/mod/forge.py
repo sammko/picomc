@@ -33,7 +33,7 @@ FORGE_WRAPPER = {
         "name": "net.cavoj:PicoForgeWrapper:1.2",
         "downloads": {
             "artifact": {
-                "url": f"https://mvn.cavoj.net/net/cavoj/PicoForgeWrapper/1.2/PicoForgeWrapper-1.2.jar",
+                "url": "https://mvn.cavoj.net/net/cavoj/PicoForgeWrapper/1.2/PicoForgeWrapper-1.2.jar",
                 "sha1": "0ad36756c05cf910bc596dd1a8239d20daa8e481",
                 "size": 6177,
             }
