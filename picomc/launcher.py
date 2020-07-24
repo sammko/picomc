@@ -71,8 +71,8 @@ class Launcher:
     def global_config(self) -> Config:
         return self.config_manager.global_config
 
-    @contextmanager
     @classmethod
+    @contextmanager
     def new(cls, *args, **kwargs):
         """Create a Launcher instance with the application root at the given
         location. This is a context manager and a Launcher instance is returned."""
