@@ -5,8 +5,9 @@ from datetime import datetime, timezone
 import click
 import requests
 
+from picomc.cli.utils import pass_launcher
 from picomc.logging import logger
-from picomc.utils import die
+from picomc.utils import Directory, die
 
 _loader_name = "fabric"
 
@@ -126,14 +127,17 @@ def fabric_cli():
 @click.argument("game_version", required=False)
 @click.argument("loader_version", required=False)
 @click.option("--name", default=None)
-@click.pass_obj
-def install_cli(ctxo, game_version, loader_version, name):
+@pass_launcher
+def install_cli(launcher, game_version, loader_version, name):
     """Install Fabric. If no additional arguments are specified, the latest
     supported stable (non-snapshot) game version is chosen. The most recent
     loader version for the given game version is selected automatically. Both
     the game version and the loader version may be overridden."""
+    versions_root = launcher.get_path(Directory.VERSIONS)
     try:
-        install(ctxo["VERSIONS_ROOT"], game_version, loader_version, version_name=name)
+        install(
+            versions_root, game_version, loader_version, version_name=name,
+        )
     except VersionError as e:
         logger.error(e)
 

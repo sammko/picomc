@@ -13,10 +13,11 @@ from zipfile import ZipFile
 import click
 import requests
 
+from picomc.cli.utils import pass_launcher
 from picomc.downloader import DownloadQueue
 from picomc.library import Artifact
 from picomc.logging import logger
-from picomc.utils import die
+from picomc.utils import Directory, die
 
 _loader_name = "forge"
 
@@ -300,8 +301,8 @@ def forge_cli():
 @click.argument("forge_version", required=False)
 @click.option("--game", "-g", default=None)
 @click.option("--latest", "-l", is_flag=True)
-@click.pass_obj
-def install_cli(ctxo, name, forge_version, game, latest):
+@pass_launcher
+def install_cli(launcher, name, forge_version, game, latest):
     """Installs Forge.
 
     The best version is selected automatically based on the given parameters.
@@ -313,8 +314,8 @@ def install_cli(ctxo, name, forge_version, game, latest):
     using --game."""
     try:
         install(
-            ctxo["VERSIONS_ROOT"],
-            ctxo["LIBRARIES_ROOT"],
+            launcher.get_path(Directory.VERSIONS),
+            launcher.get_path(Directory.LIBRARIES),
             game,
             forge_version,
             latest,
@@ -328,8 +329,7 @@ def install_cli(ctxo, name, forge_version, game, latest):
 @click.argument("forge_version", required=False)
 @click.option("--game", "-g", default=None)
 @click.option("--latest", "-l", is_flag=True)
-@click.pass_obj
-def version_cli(ctxo, forge_version, game, latest):
+def version_cli(forge_version, game, latest):
     """Resolve version without installing."""
     try:
         game_version, forge_version, version = resolve_version(
