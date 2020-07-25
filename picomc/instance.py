@@ -141,6 +141,7 @@ class Instance:
                 gamedir,
                 filter(attrgetter("is_classpath"), libraries),
                 natives_dir,
+                verify_hashes,
             )
 
     def extract_natives(self):
@@ -153,7 +154,9 @@ class Instance:
         ne.extract()
         logger.info("Extracted natives to {}".format(ne.get_natives_path()))
 
-    def _exec_mc(self, account, v, java, java_info, gamedir, libraries, natives):
+    def _exec_mc(
+        self, account, v, java, java_info, gamedir, libraries, natives, verify_hashes
+    ):
         libs = [lib.get_abspath(self.libraries_root) for lib in libraries]
         libs.append(v.jarfile)
         classpath = join_classpath(*libs)
@@ -211,6 +214,10 @@ class Instance:
             "-Xms{}".format(self.config["java.memory.min"]),
             "-Xmx{}".format(self.config["java.memory.max"]),
         ]
+
+        if verify_hashes:
+            my_jvm_args.append("-Dpicomc.verify=true")
+
         my_jvm_args += shlex.split(self.config["java.jvmargs"])
 
         fargs = [java] + sjvmargs + my_jvm_args + [mc] + smcargs
