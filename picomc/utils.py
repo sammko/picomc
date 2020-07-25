@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 import sys
 from enum import Enum, auto
 from functools import partial
@@ -25,8 +26,10 @@ def die(mesg, code=1):
     sys.exit(code)
 
 
-def sanitize_name(name):
-    return name.replace("..", "_").replace("/", "_")
+# https://github.com/django/django/blob/master/django/utils/text.py#L222
+def sanitize_name(s):
+    s = str(s).strip().replace(" ", "_")
+    return re.sub(r"(?u)[^-\w.]", "", s)
 
 
 def recur_files(path: Path):
