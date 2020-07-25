@@ -31,12 +31,12 @@ VERSION_INFO_FILE = "version.json"
 FORGE_WRAPPER = {
     "mainClass": "net.cavoj.picoforgewrapper.Main",
     "library": {
-        "name": "net.cavoj:PicoForgeWrapper:1.2",
+        "name": "net.cavoj:PicoForgeWrapper:1.3",
         "downloads": {
             "artifact": {
-                "url": "https://mvn.cavoj.net/net/cavoj/PicoForgeWrapper/1.2/PicoForgeWrapper-1.2.jar",
-                "sha1": "0ad36756c05cf910bc596dd1a8239d20daa8e481",
-                "size": 6177,
+                "url": "https://mvn.cavoj.net/net/cavoj/PicoForgeWrapper/1.3/PicoForgeWrapper-1.3.jar",
+                "sha1": "2c5ed0a503d360b9ebec434a48e1385038b87097",
+                "size": 7274,
             }
         },
     },
