@@ -25,6 +25,16 @@ GETINFO_URL = "https://addons-ecs.forgesvc.net/api/v2/addon/{}/file/{}"
 GETURL_URL = GETINFO_URL + "/download-url"
 
 
+def resolve_project_id(proj_id):
+    headers = {"User-Agent": "curl"}
+    resp = requests.get(f"{ADDON_URL}/{proj_id}", headers=headers)
+    resp.raise_for_status()
+    meta = resp.json()
+    files = meta["latestFiles"]
+    files.sort(key=lambda f: f["fileDate"], reverse=True)
+    return files[0]["downloadUrl"]
+
+
 def get_file_url(file_id, proj_id=None):
     headers = {"User-Agent": "curl"}
     if proj_id is None:
@@ -185,7 +195,9 @@ def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None)
 
 
 def install_from_path(path, launcher, instance_manager, instance_name=None):
-    if os.path.exists(path):
+    if path.isascii() and path.isdecimal():
+        path = resolve_project_id(path)
+    elif os.path.exists(path):
         if path.endswith(".ccip"):
             path = resolve_ccip(path)
         elif path.endswith(".zip"):
@@ -222,8 +234,8 @@ def install_cli(launcher, im, path, name):
     the mods from the pack installed.
 
     PATH can be a URL of the modpack (either twitch:// or https://
-    containing a numeric identifier of the file) or a path to either a downloaded
-    curse zip file or a ccip file."""
+    containing a numeric identifier of the file), a path to either a downloaded
+    curse zip file or a ccip file or the project ID."""
     install_from_path(path, launcher, im, name)
 
 
