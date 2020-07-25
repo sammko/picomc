@@ -6,6 +6,7 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePath
 from tempfile import TemporaryFile
+from xml.etree import ElementTree
 from zipfile import ZipFile
 
 import click
@@ -24,6 +25,15 @@ GETINFO_URL = "https://addons-ecs.forgesvc.net/api/v2/addon/{}/file/{}"
 GETURL_URL = GETINFO_URL + "/download-url"
 
 
+def get_file_url(file_id, proj_id=None):
+    headers = {"User-Agent": "curl"}
+    if proj_id is None:
+        proj_id = "anything"
+    resp = requests.get(GETURL_URL.format(proj_id, file_id), headers=headers)
+    resp.raise_for_status()
+    return resp.text
+
+
 def resolve_packurl(path):
     if path.startswith("https://") and path.endswith(".zip"):
         return path
@@ -31,12 +41,15 @@ def resolve_packurl(path):
     match = re.match(regex, path)
     if match:
         file_id = match.group(3)
-        headers = {"User-Agent": "curl"}
-        resp = requests.get(GETURL_URL.format("anything", file_id), headers=headers)
-        resp.raise_for_status()
-        return resp.text
+        return get_file_url(file_id)
     else:
         raise ValueError("Unsupported URL")
+
+
+def resolve_ccip(filename):
+    xml = ElementTree.parse(filename)
+    proj_attr = xml.find("project").attrib
+    return get_file_url(proj_attr["file"], proj_attr["id"])
 
 
 def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None):
@@ -173,17 +186,22 @@ def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None)
 
 def install_from_path(path, launcher, instance_manager, instance_name=None):
     if os.path.exists(path):
-        zipfile = ZipFile(path)
-        with open(zipfile, "rb") as fd:
-            install_from_zip(fd, launcher, instance_manager, instance_name)
-    else:
-        zipurl = resolve_packurl(path)
-        with requests.get(zipurl, stream=True) as r:
-            r.raise_for_status()
-            with TemporaryFile() as tempfile:
-                for chunk in r.iter_content(chunk_size=8192):
-                    tempfile.write(chunk)
-                install_from_zip(tempfile, launcher, instance_manager, instance_name)
+        if path.endswith(".ccip"):
+            path = resolve_ccip(path)
+        elif path.endswith(".zip"):
+            zipfile = ZipFile(path)
+            with open(zipfile, "rb") as fd:
+                return install_from_zip(fd, launcher, instance_manager, instance_name)
+        else:
+            die("File must be .ccip or .zip")
+
+    zipurl = resolve_packurl(path)
+    with requests.get(zipurl, stream=True) as r:
+        r.raise_for_status()
+        with TemporaryFile() as tempfile:
+            for chunk in r.iter_content(chunk_size=8192):
+                tempfile.write(chunk)
+            install_from_zip(tempfile, launcher, instance_manager, instance_name)
 
 
 @click.group("curse")
@@ -204,7 +222,8 @@ def install_cli(launcher, im, path, name):
     the mods from the pack installed.
 
     PATH can be a URL of the modpack (either twitch:// or https://
-    containing a numeric identifier of the file) or a path to the curse zip file."""
+    containing a numeric identifier of the file) or a path to either a downloaded
+    curse zip file or a ccip file."""
     install_from_path(path, launcher, im, name)
 
 
