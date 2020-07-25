@@ -96,6 +96,9 @@ class Instance:
     def get_relpath(self, rel=""):
         return self.directory / rel
 
+    def get_minecraft_dir(self):
+        return self.get_relpath("minecraft")
+
     def get_java(self):
         return self.config["java.path"]
 
@@ -116,7 +119,7 @@ class Instance:
                 )
             )
         logger.info("Using account: {}".format(account))
-        gamedir = self.get_relpath("minecraft")
+        gamedir = self.get_minecraft_dir()
         os.makedirs(gamedir, exist_ok=True)
 
         java = self.get_java()
