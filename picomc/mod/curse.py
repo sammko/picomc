@@ -16,7 +16,7 @@ from picomc.cli.utils import pass_instance_manager, pass_launcher
 from picomc.downloader import DownloadQueue
 from picomc.logging import logger
 from picomc.mod import forge
-from picomc.utils import die
+from picomc.utils import Directory, die, sanitize_name
 
 FORGE_PREFIX = "forge-"
 ADDON_URL = "https://addons-ecs.forgesvc.net/api/v2/addon"
@@ -39,7 +39,7 @@ def resolve_packurl(path):
         raise ValueError("Unsupported URL")
 
 
-def install_from_zip(zipfileobj, picomc_root, instance_manager, instance_name=None):
+def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None):
     with ZipFile(zipfileobj) as pack_zf:
         with pack_zf.open("manifest.json") as fd:
             manifest = json.load(fd)
@@ -55,7 +55,9 @@ def install_from_zip(zipfileobj, picomc_root, instance_manager, instance_name=No
         packname = manifest["name"]
         packver = manifest["version"]
         if instance_name is None:
-            instance_name = "{}-{}".format(packname.replace(" ", "_"), packver)
+            instance_name = "{}-{}".format(
+                sanitize_name(packname), sanitize_name(packver)
+            )
             logger.info(f"Installing {packname} version {packver}")
         else:
             logger.info(
@@ -67,8 +69,8 @@ def install_from_zip(zipfileobj, picomc_root, instance_manager, instance_name=No
 
         try:
             forge.install(
-                versions_root=picomc_root / "versions",
-                libraries_root=picomc_root / "libraries",
+                versions_root=launcher.get_path(Directory.VERSIONS),
+                libraries_root=launcher.get_path(Directory.LIBRARIES),
                 forge_version=forge_ver,
             )
         except forge.AlreadyInstalledError:
@@ -168,11 +170,11 @@ def install_from_zip(zipfileobj, picomc_root, instance_manager, instance_name=No
         logger.info("Done installing {}".format(instance_name))
 
 
-def install_from_path(path, picomc_root, instance_manager, instance_name=None):
+def install_from_path(path, launcher, instance_manager, instance_name=None):
     if os.path.exists(path):
         zipfile = ZipFile(path)
         with open(zipfile, "rb") as fd:
-            install_from_zip(fd, picomc_root, instance_manager, instance_name)
+            install_from_zip(fd, launcher, instance_manager, instance_name)
     else:
         zipurl = resolve_packurl(path)
         with requests.get(zipurl, stream=True) as r:
@@ -180,7 +182,7 @@ def install_from_path(path, picomc_root, instance_manager, instance_name=None):
             with TemporaryFile() as tempfile:
                 for chunk in r.iter_content(chunk_size=8192):
                     tempfile.write(chunk)
-                install_from_zip(tempfile, picomc_root, instance_manager, instance_name)
+                install_from_zip(tempfile, launcher, instance_manager, instance_name)
 
 
 @click.group("curse")
@@ -202,7 +204,7 @@ def install_cli(launcher, im, path, name):
 
     PATH can be a URL of the modpack (either twitch:// or https://
     containing a numeric identifier of the file) or a path to the curse zip file."""
-    install_from_path(path, launcher.get_path(), im, name)
+    install_from_path(path, launcher, im, name)
 
 
 def register_cli(root):
