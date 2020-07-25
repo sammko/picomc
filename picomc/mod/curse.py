@@ -83,22 +83,6 @@ def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None)
         )
         # This is a random guess, but better than the vanilla 1G
         inst.config["java.memory.max"] = "4G"
-        inst_dir = Path(inst.get_relpath())
-
-        overrides = manifest["overrides"]
-        mcdir: Path = inst_dir / "minecraft"
-        for fileinfo in pack_zf.infolist():
-            if fileinfo.is_dir():
-                continue
-            fname = fileinfo.filename
-            try:
-                outpath = mcdir / PurePath(fname).relative_to(overrides)
-            except ValueError:
-                continue
-            if not outpath.parent.exists():
-                outpath.parent.mkdir(parents=True, exist_ok=True)
-            with pack_zf.open(fname) as infile, open(outpath, "wb") as outfile:
-                shutil.copyfileobj(infile, outfile)
 
         project_files = {mod["projectID"]: mod["fileID"] for mod in manifest["files"]}
         headers = {"User-Agent": "curl"}
@@ -106,6 +90,7 @@ def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None)
 
         logger.info("Retrieving mod metadata from curse")
         modcount = len(project_files)
+        mcdir: Path = inst.get_minecraft_dir()
         moddir = mcdir / "mods"
         with tqdm(total=modcount) as tq:
             # Try to get as many file_infos as we can in one request
@@ -167,6 +152,22 @@ def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None)
 
         logger.info("Downloading mod jars")
         dq.download()
+
+        logger.info("Copying overrides")
+        overrides = manifest["overrides"]
+        for fileinfo in pack_zf.infolist():
+            if fileinfo.is_dir():
+                continue
+            fname = fileinfo.filename
+            try:
+                outpath = mcdir / PurePath(fname).relative_to(overrides)
+            except ValueError:
+                continue
+            if not outpath.parent.exists():
+                outpath.parent.mkdir(parents=True, exist_ok=True)
+            with pack_zf.open(fname) as infile, open(outpath, "wb") as outfile:
+                shutil.copyfileobj(infile, outfile)
+
         logger.info("Done installing {}".format(instance_name))
 
 
