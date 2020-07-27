@@ -147,6 +147,7 @@ class Instance:
     def extract_natives(self):
         vobj = self.launcher.version_manager.get_version(self.config["version"])
         java_info = assert_java(self.get_java())
+        vobj.download_libraries(java_info, verify_hashes=True)
         libs = vobj.get_libraries(java_info)
         ne = NativesExtractor(
             self.libraries_root, self, filter(attrgetter("is_native"), libs)
