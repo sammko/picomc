@@ -3,7 +3,7 @@ import click
 from picomc.cli.utils import pass_global_config
 
 
-@click.group()
+@click.group("config")
 def config_cli():
     """Configure picomc."""
     pass
@@ -50,7 +50,3 @@ def delete(cfg, key):
         del cfg[key]
     except KeyError:
         print("No such item.")
-
-
-def register_config_cli(picomc_cli):
-    picomc_cli.add_command(config_cli, name="config")

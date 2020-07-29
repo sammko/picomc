@@ -21,7 +21,7 @@ def version_cmd(fn):
     return inner
 
 
-@click.group()
+@click.group("version")
 def version_cli():
     """Manage Minecraft versions."""
     pass
@@ -79,7 +79,3 @@ def jar(version, which, output):
     urllib.request.urlretrieve(dlspec["url"], output)
     if file_sha1(output) != sha1:
         logger.warning("Hash of downloaded file does not match")
-
-
-def register_version_cli(root_cli):
-    root_cli.add_command(version_cli, "version")

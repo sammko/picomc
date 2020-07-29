@@ -3,7 +3,7 @@ import click
 from picomc import mod
 
 
-@click.group()
+@click.group("mod")
 def mod_cli():
     """Helpers to install modded Minecraft."""
     pass
@@ -48,7 +48,3 @@ def pack_cli():
 
 for pack in mod.PACKS:
     pack.register_cli(pack_cli)
-
-
-def register_mod_cli(picomc_cli):
-    picomc_cli.add_command(mod_cli, name="mod")

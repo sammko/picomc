@@ -9,7 +9,7 @@ def account_cmd(fn):
     return click.argument("account")(fn)
 
 
-@click.group()
+@click.group("account")
 def account_cli():
     """Manage your accounts."""
     pass
@@ -91,7 +91,3 @@ def setdefault(am, account):
         am.set_default(default)
     except AccountError as e:
         print(e)
-
-
-def register_account_cli(picomc_cli):
-    picomc_cli.add_command(account_cli, name="account")

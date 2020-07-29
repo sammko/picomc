@@ -6,14 +6,14 @@ from picomc.account import AccountError, OfflineAccount, OnlineAccount
 from picomc.cli.utils import pass_account_manager, pass_instance_manager, pass_launcher
 
 
-@click.command()
+@click.command("play")
 @click.argument("version", default=False)
 @click.option("-a", "--account", "account_name")
 @click.option("--verify", is_flag=True, default=False)
 @pass_instance_manager
 @pass_account_manager
 @pass_launcher
-def play(launcher, am, im, version, account_name, verify):
+def play_cli(launcher, am, im, version, account_name, verify):
     """Play Minecraft without having to deal with stuff"""
     if account_name:
         account = am.get(account_name)
@@ -37,7 +37,3 @@ def play(launcher, am, im, version, account_name, verify):
         im.create("default", "latest")
     inst = im.get("default")
     inst.launch(account, version, verify_hashes=verify)
-
-
-def register_play_cli(picomc_cli):
-    picomc_cli.add_command(play)

@@ -17,7 +17,7 @@ def instance_cmd(fn):
     return inner
 
 
-@click.group()
+@click.group("instance")
 def instance_cli():
     """Manage your instances."""
     pass
@@ -165,7 +165,3 @@ def config_delete(config, key):
         del config[key]
     except KeyError:
         print("No such item.")
-
-
-def register_instance_cli(picomc_cli):
-    picomc_cli.add_command(instance_cli, name="instance")
