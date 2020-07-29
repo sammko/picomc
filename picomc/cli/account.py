@@ -5,8 +5,22 @@ from picomc.cli.utils import pass_account_manager
 from picomc.yggdrasil import AuthenticationError
 
 
-def account_cmd(fn):
-    return click.argument("account")(fn)
+def account_list_cmpl(online_only):
+    def inner(ctx, args, incomplete):
+        from picomc.cli.completion import CompletionContext
+
+        with CompletionContext.new(args) as cc:
+            return cc.list_accounts(incomplete, online_only=online_only)
+
+    return inner
+
+
+def account_cmd(existing=True, online_only=False):
+    def decorator(fn):
+        cmpl = account_list_cmpl(online_only) if existing else None
+        return click.argument("account", autocompletion=cmpl)(fn)
+
+    return decorator
 
 
 @click.group("account")
@@ -28,7 +42,7 @@ def _list(am):
 
 
 @account_cli.command()
-@account_cmd
+@account_cmd(existing=False)
 @click.argument("mojang_username", default="")
 @pass_account_manager
 def create(am, account, mojang_username):
@@ -44,7 +58,7 @@ def create(am, account, mojang_username):
 
 
 @account_cli.command()
-@account_cmd
+@account_cmd(online_only=True)
 @pass_account_manager
 def authenticate(am, account):
     """Retrieve access token from Mojang servers using password."""
@@ -59,7 +73,7 @@ def authenticate(am, account):
 
 
 @account_cli.command()
-@account_cmd
+@account_cmd(online_only=True)
 @pass_account_manager
 def refresh(am, account):
     """Refresh access token with Mojang servers."""
@@ -71,7 +85,7 @@ def refresh(am, account):
 
 
 @account_cli.command()
-@account_cmd
+@account_cmd()
 @pass_account_manager
 def remove(am, account):
     """Remove the account."""
@@ -82,7 +96,7 @@ def remove(am, account):
 
 
 @account_cli.command()
-@account_cmd
+@account_cmd()
 @pass_account_manager
 def setdefault(am, account):
     """Set the account as default."""

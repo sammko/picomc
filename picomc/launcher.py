@@ -46,6 +46,17 @@ DIRECTORY_MAP = {
 }
 
 
+def get_path(root, *pathsegments) -> Path:
+    it = iter(pathsegments)
+    try:
+        d = next(it)
+        if isinstance(d, Directory):
+            d = DIRECTORY_MAP[d]
+        return root / d / PurePath(*it)
+    except StopIteration:
+        return root
+
+
 class Launcher:
     root: Path
     exit_stack: ExitStack
@@ -93,14 +104,7 @@ class Launcher:
         """Constructs a path relative to the Launcher root. `pathsegments` is
         specified similarly to `pathlib.PurePath`. Additionally, if the first
         element of `pathsegments` is a `picomc.utils.Directory`, it is resolved."""
-        it = iter(pathsegments)
-        try:
-            d = next(it)
-            if isinstance(d, Directory):
-                d = DIRECTORY_MAP[d]
-            return self.root / d / PurePath(*it)
-        except StopIteration:
-            return self.root
+        return get_path(self.root, *pathsegments)
 
     def write_profiles_dummy(self):
         """Writes a minimal launcher_profiles.json which is expected to exist

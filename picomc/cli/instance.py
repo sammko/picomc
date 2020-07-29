@@ -8,13 +8,29 @@ from picomc.logging import logger
 from picomc.utils import Directory, die, sanitize_name
 
 
-def instance_cmd(fn):
-    @click.argument("instance_name")
-    @functools.wraps(fn)
-    def inner(*args, instance_name, **kwargs):
-        return fn(*args, instance_name=sanitize_name(instance_name), **kwargs)
+def instance_list_cmpl(ctx, args, incomplete):
+    from picomc.cli.completion import CompletionContext
 
-    return inner
+    with CompletionContext.new(args) as cc:
+        return cc.list_instances(incomplete)
+
+
+def instance_cmd(required=True, existing=True, name="instance_name"):
+    def decorator(fn):
+        compl = instance_list_cmpl if existing else None
+
+        @click.argument(name, autocompletion=compl, required=required)
+        @functools.wraps(fn)
+        def inner(*args, instance_name, **kwargs):
+            if instance_name is None:
+                sanitized = None
+            else:
+                sanitized = sanitize_name(instance_name)
+            return fn(*args, instance_name=sanitized, **kwargs)
+
+        return inner
+
+    return decorator
 
 
 @click.group("instance")
@@ -24,7 +40,7 @@ def instance_cli():
 
 
 @instance_cli.command()
-@instance_cmd
+@instance_cmd(existing=False)
 @click.argument("version", default="latest")
 @pass_instance_manager
 def create(im, instance_name, version):
@@ -43,7 +59,7 @@ def list(im):
 
 
 @instance_cli.command()
-@instance_cmd
+@instance_cmd()
 @pass_instance_manager
 def delete(im, instance_name):
     """Delete the instance (from disk)."""
@@ -54,7 +70,7 @@ def delete(im, instance_name):
 
 
 @instance_cli.command()
-@instance_cmd
+@instance_cmd()
 @click.option("--verify", is_flag=True, default=False)
 @click.option("--account", default=None)
 @click.option("--version-override", default=None)
@@ -77,7 +93,7 @@ def launch(am, im, instance_name, account, version_override, verify):
 
 
 @instance_cli.command("natives")
-@instance_cmd
+@instance_cmd()
 @pass_instance_manager
 def extract_natives(im, instance_name):
     """Extract natives and leave them on disk"""
@@ -88,25 +104,22 @@ def extract_natives(im, instance_name):
 
 
 @instance_cli.command("dir")
-@click.argument("instance_name", required=False)
+@instance_cmd(required=False)
 @pass_instance_manager
 @pass_launcher
 def _dir(launcher, im, instance_name):
     """Print root directory of instance."""
-    if not instance_name:
-        # TODO
+    if instance_name is None:
         print(launcher.get_path(Directory.INSTANCES))
     else:
-        instance_name = sanitize_name(instance_name)
         print(im.get_root(instance_name))
 
 
 @instance_cli.command("rename")
-@instance_cmd
-@click.argument("new_name")
+@instance_cmd()
+@instance_cmd(existing=False, name="new_name")
 @pass_instance_manager
 def rename(im, instance_name, new_name):
-    new_name = sanitize_name(new_name)
     if im.exists(instance_name):
         if im.exists(new_name):
             die("Instance with target name already exists.")
@@ -116,7 +129,7 @@ def rename(im, instance_name, new_name):
 
 
 @instance_cli.group("config")
-@instance_cmd
+@instance_cmd()
 @pass_instance_manager
 @click.pass_context
 def config_cli(ctx, im, instance_name):
