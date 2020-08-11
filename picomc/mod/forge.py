@@ -238,7 +238,9 @@ def install(
     version_dir = os.path.join(versions_root, version_name)
     if os.path.exists(version_dir):
         logger.info(f"Forge {version} already installed as {version_name}")
-        raise AlreadyInstalledError(f"Version with name {version_name} already exists")
+        raise AlreadyInstalledError(
+            version_name, f"Version with name {version_name} already exists"
+        )
 
     logger.info(f"Installing Forge {version} as {version_name}")
 
@@ -300,6 +302,7 @@ def install(
         except:  # noqa E722
             shutil.rmtree(version_dir, ignore_errors=True)
             raise
+    return version_name
 
 
 @click.group("forge")
