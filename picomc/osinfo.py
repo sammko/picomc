@@ -12,14 +12,7 @@ class OsInfo:
 
     @staticmethod
     def get_platform():
-        try:
-            PLATFORM_MAP = {"darwin": "osx", "win32": "windows", "linux": "linux"}
-            return PLATFORM_MAP[sys.platform]
-        except KeyError:
-            # This is probably not neccesary, as the game is not officialy supported
-            # on other platforms and natives are not available. (Unless you compile
-            # them and patch the corresponding version json)
-            return sys.platform
+        return {"darwin": "osx", "win32": "windows"}.get(sys.platform, sys.platform)
 
     @staticmethod
     def get_arch():
