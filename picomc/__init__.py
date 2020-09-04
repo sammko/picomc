@@ -1,7 +1,6 @@
 import sys
 
-# This is referenced in setup.py
-from picomc.main import main
+from picomc.cli import picomc_cli
 
 from ._version import __version__
 
@@ -17,3 +16,7 @@ if sys.version_info < MINPYVERSION:
         "{}.{}.{}. You are using {}.{}.{}.".format(*MINPYVERSION, *sys.version_info)
     )
     sys.exit(1)
+
+
+def main():
+    picomc_cli()

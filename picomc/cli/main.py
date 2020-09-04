@@ -1,5 +1,5 @@
 import os
-from contextlib import ExitStack
+from functools import partial
 from pathlib import Path
 
 import click
@@ -37,7 +37,7 @@ def click_print_version(ctx, param, value):
     is_eager=True,
 )
 @click.pass_context
-def picomc_cli(ctx, debug, root):
+def picomc_cli(ctx: click.Context, debug, root):
     """picomc is a minimal CLI Minecraft launcher."""
     logging.initialize(debug)
 
@@ -51,15 +51,8 @@ def picomc_cli(ctx, debug, root):
     if final_root is not None:
         final_root = Path(final_root).resolve()
 
-    # This is a hacky way to enter a contextmanager
-    # in here and make the result evailable to subcommands
-    # https://github.com/pallets/click/issues/1245
-    # Reuse existing exit_stack instead of creating a nested
-    # one. Launcher.new should be used in saner contexts and
-    # in case support for contextmanagers is added to click.
-    exit_stack = ctx.obj
-    assert isinstance(exit_stack, ExitStack)
-    launcher = Launcher(exit_stack, root=final_root, debug=debug)
+    launcher_cm = Launcher.new(root=final_root, debug=debug)
+    launcher = launcher_cm.__enter__()
+    ctx.call_on_close(partial(launcher_cm.__exit__, None, None, None))
 
-    # Overwrite the ctx.obj to be used by subcommands
     ctx.obj = launcher
