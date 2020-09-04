@@ -80,7 +80,7 @@ def launch(am, im, instance_name, account, version_override, verify):
 @instance_cmd
 @pass_instance_manager
 def extract_natives(im, instance_name):
-    """Extract natives and leave them on disk"""
+    """Extract natives and leave them on disk."""
     if not im.exists(instance_name):
         die("No such instance exists.")
     inst = im.get(instance_name)
@@ -106,6 +106,7 @@ def _dir(launcher, im, instance_name):
 @click.argument("new_name")
 @pass_instance_manager
 def rename(im, instance_name, new_name):
+    """Rename an instance."""
     new_name = sanitize_name(new_name)
     if im.exists(instance_name):
         if im.exists(new_name):
