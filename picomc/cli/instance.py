@@ -56,7 +56,7 @@ def delete(im, instance_name):
 @instance_cli.command()
 @instance_cmd
 @click.option("--verify", is_flag=True, default=False)
-@click.option("--account", default=None)
+@click.option("-a", "--account", default=None)
 @click.option("--version-override", default=None)
 @pass_instance_manager
 @pass_account_manager
