@@ -5,8 +5,7 @@ from collections import namedtuple
 
 Version = namedtuple("Version", ("release", "dev", "labels"))
 
-# No public API
-__all__ = []
+__all__ = ["__version__"]
 
 package_root = os.path.dirname(os.path.realpath(__file__))
 package_name = os.path.basename(package_root)
