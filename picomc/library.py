@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from platform import architecture
 from string import Template
+from typing import Optional
 
 from picomc.logging import logger
 from picomc.osinfo import osinfo
@@ -10,10 +11,10 @@ from picomc.osinfo import osinfo
 
 @dataclass
 class Artifact:
-    url: str
+    url: Optional[str]
     path: PurePosixPath
-    sha1: str
-    size: int
+    sha1: Optional[str]
+    size: Optional[int]
     filename: str
 
     @classmethod

@@ -11,23 +11,15 @@ from picomc.version import VersionManager
 from picomc.windows import get_appdata
 
 
-def get_default_java():
-    # This is probably the most friendly thing we can do short of detecting
-    # java installations in various places depending on platform.
-    # Having gained some experience, java is usually found in the PATH on
-    # all three supported platforms, so this is no problem at all.
-    return "java"
-
-
 def get_default_root():
     logger.debug("Resolving default application root")
-    MAP = {
+    platforms = {
         "linux": lambda: Path("~/.local/share/picomc").expanduser(),
         "win32": lambda: get_appdata() / ".picomc",
         "darwin": lambda: Path("~/Library/Application Support/picomc").expanduser(),
     }
-    if sys.platform in MAP:
-        return MAP[sys.platform]()
+    if sys.platform in platforms:
+        return platforms[sys.platform]()
     else:
         # This is probably better than nothing and should be fine on most
         # widely-used platforms other than the supported ones. Too bad in
@@ -36,13 +28,13 @@ def get_default_root():
 
 
 DIRECTORY_MAP = {
-    Directory.ASSETS: "assets",
+    Directory.ASSETS: PurePath("assets"),
     Directory.ASSET_INDEXES: PurePath("assets", "indexes"),
     Directory.ASSET_OBJECTS: PurePath("assets", "objects"),
     Directory.ASSET_VIRTUAL: PurePath("assets", "virtual"),
-    Directory.INSTANCES: "instances",
-    Directory.LIBRARIES: "libraries",
-    Directory.VERSIONS: "versions",
+    Directory.INSTANCES: PurePath("instances"),
+    Directory.LIBRARIES: PurePath("libraries"),
+    Directory.VERSIONS: PurePath("versions"),
 }
 
 

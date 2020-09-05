@@ -77,7 +77,7 @@ def process_arguments(arguments_dict, java_info):
                     logger.error("Unknown type of value field.")
         return args
 
-    return (subproc(arguments_dict["game"]), subproc(arguments_dict.get("jvm")))
+    return subproc(arguments_dict["game"]), subproc(arguments_dict.get("jvm"))
 
 
 class Instance:
