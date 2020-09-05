@@ -6,9 +6,21 @@ from picomc.logging import logger
 from picomc.utils import cached_property
 
 
+def get_default_java():
+    java_home = os.getenv("JAVA_HOME")
+    if java_home is not None:
+        candidates = ["java", "java.exe"]
+        for candidate in candidates:
+            path = os.path.join(java_home, "bin", candidate)
+            if os.path.isfile(path):
+                logger.debug("Detected JAVA_HOME, using as default")
+                return path
+    return "java"
+
+
 def get_default_config():
     return {
-        "java.path": "java",
+        "java.path": get_default_java(),
         "java.memory.min": "512M",
         "java.memory.max": "2G",
         "java.jvmargs": "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M",
