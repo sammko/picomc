@@ -12,7 +12,7 @@ import requests
 
 import picomc
 from picomc import logging
-from picomc.javainfo import assert_java
+from picomc.java import assert_java
 from picomc.logging import logger
 from picomc.rules import match_ruleset
 from picomc.utils import Directory, join_classpath, sanitize_name

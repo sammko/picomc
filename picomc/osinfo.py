@@ -32,7 +32,7 @@ class OsInfo:
     def get_os_version(java_info):
         if not java_info:
             return None, None
-        version = java_info.get("os.version").decode("ascii")
+        version = java_info.get("os.version")
         return version
 
 

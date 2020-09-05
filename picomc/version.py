@@ -12,7 +12,7 @@ from pathlib import PurePath
 import requests
 
 from picomc.downloader import DownloadQueue
-from picomc.javainfo import get_java_info
+from picomc.java import get_java_info
 from picomc.library import Library
 from picomc.logging import logger
 from picomc.rules import match_ruleset

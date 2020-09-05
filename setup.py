@@ -31,4 +31,5 @@ setup(
     ],
     python_requires=">=3.7",
     entry_points={"console_scripts": ["picomc = picomc:main"]},
+    package_data={"picomc.java": ["SysDump.class"]},
 )
