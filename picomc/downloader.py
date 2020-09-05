@@ -30,7 +30,7 @@ def DlTempFile(*args, default_mode=0o666, try_delete=True, **kwargs):
         with f as uf:
             yield uf
     finally:
-        if os.path.exists(f.name):
+        if try_delete and os.path.exists(f.name):
             os.unlink(f.name)
 
 
