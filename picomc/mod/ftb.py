@@ -14,18 +14,12 @@ BASE_URL = "https://api.modpacks.ch/"
 MODPACK_URL = BASE_URL + "public/modpack/{}"
 VERSION_URL = MODPACK_URL + "/{}"
 
-NEPTUNE_URL = "https://meta.ftb.neptunepowered.org/pack/{}/"
-
 
 class FTBError(Exception):
     pass
 
 
 class InvalidVersionError(FTBError):
-    pass
-
-
-class InvalidPackSlugError(FTBError):
     pass
 
 
@@ -51,22 +45,15 @@ def get_version_manifest(pack_id, version_id):
     return j
 
 
-def resolve_packid(pack):
-    pack = pack.replace("_", "-")
-    resp = requests.get(NEPTUNE_URL.format(pack))
-    if resp.status_code == 404:
-        raise InvalidPackSlugError(pack)
-    resp.raise_for_status()
-    return resp.json()["id"]
-
-
 def resolve_pack_meta(pack: str, pack_version=None, use_beta=False):
     if pack.isascii() and pack.isdecimal():
         # We got pack ID
         pack_id = int(pack)
     else:
         # We got pack slug
-        pack_id = resolve_packid(pack)
+        raise NotImplementedError(
+            "Pack slug resolution is currently not available. Please use the numerical pack ID."
+        )
 
     pack_manifest = get_pack_manifest(pack_id)
 
@@ -89,7 +76,10 @@ def resolve_pack_meta(pack: str, pack_version=None, use_beta=False):
 
 
 def install(pack_id, version, launcher, im, instance_name, use_beta):
-    pack_manifest, version_manifest = resolve_pack_meta(pack_id, version, use_beta)
+    try:
+        pack_manifest, version_manifest = resolve_pack_meta(pack_id, version, use_beta)
+    except NotImplementedError as ex:
+        die(ex)
 
     pack_name = pack_manifest["name"]
     pack_version = version_manifest["name"]
