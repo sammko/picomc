@@ -235,8 +235,8 @@ def install(
     if version_name is None:
         version_name = f"{game_version}-forge-{forge_version}"
 
-    version_dir = os.path.join(versions_root, version_name)
-    if os.path.exists(version_dir):
+    version_dir = versions_root / version_name
+    if version_dir.exists():
         logger.info(f"Forge {version} already installed as {version_name}")
         raise AlreadyInstalledError(
             version_name, f"Version with name {version_name} already exists"
@@ -282,14 +282,14 @@ def install(
             )
             with ZipFile(installer_file) as zf:
                 zf.extractall(path=extract_dir)
-                with open(os.path.join(extract_dir, INSTALL_PROFILE_FILE)) as fd:
+                with open(extract_dir / INSTALL_PROFILE_FILE) as fd:
                     ctx.install_profile = json.load(fd)
                 if "install" in ctx.install_profile:
                     ctx.version_info = ctx.install_profile["versionInfo"]
                     logger.info("Installing from classic installer")
                     install_classic(ctx)
                 else:
-                    with open(os.path.join(extract_dir, VERSION_INFO_FILE)) as fd:
+                    with open(extract_dir / VERSION_INFO_FILE) as fd:
                         ctx.version_info = json.load(fd)
                     if len(ctx.install_profile["processors"]) == 0:
                         logger.info("Installing legacy version from newstyle installer")
