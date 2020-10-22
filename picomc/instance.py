@@ -223,7 +223,7 @@ class Instance:
 
         fargs = [java] + sjvmargs + my_jvm_args + [mc] + smcargs
         if logging.debug:
-            logger.debug("Launching: " + " ".join(fargs))
+            logger.debug("Launching: " + shlex.join(fargs))
         else:
             logger.info("Launching the game")
         subprocess.run(fargs, cwd=gamedir)
