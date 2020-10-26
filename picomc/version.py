@@ -150,11 +150,7 @@ class Version:
             else:
                 die("Specified version ({}) not available".format(self.version_name))
         url = self.version_manifest["url"]
-        # Pull the hash out of the url. This is prone to breakage, maybe
-        # just try to download the vspec and don't care about whether it
-        # is up to date or not.
-        url_split = urllib.parse.urlsplit(url)
-        sha1 = posixpath.basename(posixpath.dirname(url_split.path))
+        sha1 = self.version_manifest["sha1"]
 
         if vspec_path.exists() and file_sha1(vspec_path) == sha1:
             logger.debug(
@@ -350,7 +346,7 @@ class Version:
 
 
 class VersionManager:
-    MANIFEST_URL = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
+    MANIFEST_URL = "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json"
 
     def __init__(self, launcher):
         self.launcher = launcher
