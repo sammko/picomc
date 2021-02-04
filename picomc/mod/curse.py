@@ -64,7 +64,16 @@ def resolve_ccip(filename):
 
 def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None):
     with ZipFile(zipfileobj) as pack_zf:
-        with pack_zf.open("manifest.json") as fd:
+        for fileinfo in pack_zf.infolist():
+            fpath = PurePath(fileinfo.filename)
+            if fpath.parts[-1] == "manifest.json" and len(fpath.parts) <= 2:
+                manifest_zipinfo = fileinfo
+                archive_prefix = fpath.parent
+                break
+        else:
+            raise ValueError("Zip file does not contain manifest")
+
+        with pack_zf.open(manifest_zipinfo) as fd:
             manifest = json.load(fd)
 
         assert manifest["manifestType"] == "minecraftModpack"
@@ -177,7 +186,7 @@ def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None)
         dq.download()
 
         logger.info("Copying overrides")
-        overrides = manifest["overrides"]
+        overrides = archive_prefix / manifest["overrides"]
         for fileinfo in pack_zf.infolist():
             if fileinfo.is_dir():
                 continue
@@ -188,7 +197,7 @@ def install_from_zip(zipfileobj, launcher, instance_manager, instance_name=None)
                 continue
             if not outpath.parent.exists():
                 outpath.parent.mkdir(parents=True, exist_ok=True)
-            with pack_zf.open(fname) as infile, open(outpath, "wb") as outfile:
+            with pack_zf.open(fileinfo) as infile, open(outpath, "wb") as outfile:
                 shutil.copyfileobj(infile, outfile)
 
         logger.info("Done installing {}".format(instance_name))
