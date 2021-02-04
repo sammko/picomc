@@ -201,8 +201,7 @@ def install_from_path(path, launcher, instance_manager, instance_name=None):
         if path.endswith(".ccip"):
             path = resolve_ccip(path)
         elif path.endswith(".zip"):
-            zipfile = ZipFile(path)
-            with open(zipfile, "rb") as fd:
+            with open(path, "rb") as fd:
                 return install_from_zip(fd, launcher, instance_manager, instance_name)
         else:
             die("File must be .ccip or .zip")
