@@ -64,7 +64,9 @@ def get_appdata():
     # HACK: This check is relatively fragile
     if "WindowsApps\\PythonSoftwareFoundation" in sys.base_exec_prefix:
         logger.warning(
-            "Detected Microsoft Store Python distribution. It is recommended to install Python using the official installer or a package manager like Chocolatey."
+            "Detected Microsoft Store Python distribution. "
+            "It is recommended to install Python using the official installer "
+            "or a package manager like Chocolatey."
         )
         appdata = get_appdata_uwp()
         logger.warning("Using redirected AppData directory: {}".format(appdata))

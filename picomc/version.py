@@ -64,7 +64,10 @@ LEGACY_ASSETS = {
     "sha1": "770572e819335b6c0a053f8378ad88eda189fc14",
     "size": 109634,
     "totalSize": 153475165,
-    "url": "https://launchermeta.mojang.com/v1/packages/770572e819335b6c0a053f8378ad88eda189fc14/legacy.json",
+    "url": (
+        "https://launchermeta.mojang.com/v1/packages/"
+        "770572e819335b6c0a053f8378ad88eda189fc14/legacy.json"
+    ),
 }
 
 
@@ -258,7 +261,8 @@ class Version:
                 ok = ok and file_sha1(abspath) == library.sha1
             if not ok and not library.url:
                 logger.error(
-                    f"Library {library.filename} is missing or corrupt and has no download url."
+                    f"Library {library.filename} is missing or corrupt "
+                    "and has no download url."
                 )
                 continue
             if force or not ok:
@@ -271,7 +275,8 @@ class Version:
             logger.info("Downloading {} libraries.".format(len(q)))
         if not q.download():
             logger.error(
-                "Some libraries failed to download. If they are part of a non-vanilla profile, the original installer may need to be used."
+                "Some libraries failed to download. If they are part of a non-vanilla "
+                "profile, the original installer may need to be used."
             )
 
     def _populate_virtual_assets(self, asset_index, where):

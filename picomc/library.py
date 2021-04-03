@@ -78,7 +78,8 @@ class Library:
                 self.descriptor = self.descriptor + ":" + self.native_classifier
             except KeyError:
                 logger.warning(
-                    f"Native {self.descriptor} is not available for current platform {osinfo.platform}."
+                    f"Native {self.descriptor} is not available "
+                    f"for current platform {osinfo.platform}."
                 )
                 self.available = False
                 return
