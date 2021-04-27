@@ -22,7 +22,7 @@ from picomc.utils import Directory
 _loader_name = "forge"
 
 MAVEN_URL = "https://files.minecraftforge.net/maven/net/minecraftforge/forge/"
-PROMO_FILE = "promotions.json"
+PROMO_FILE = "promotions_slim.json"
 META_FILE = "maven-metadata.xml"
 INSTALLER_FILE = "forge-{}-installer.jar"
 INSTALL_PROFILE_FILE = "install_profile.json"
