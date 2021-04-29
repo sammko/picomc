@@ -69,27 +69,27 @@ def get_applicable_promos(latest=False):
     resp = requests.get(urllib.parse.urljoin(MAVEN_URL, PROMO_FILE))
     promo_obj = resp.json()
 
-    for id_, ver_obj in promo_obj["promos"].items():
+    for id_, forge_version in promo_obj["promos"].items():
         is_latest = id_.endswith("latest")
         if is_latest and not latest:
             continue
-        yield ver_obj
+        game_version = id_.split("-")[0]
+        if "_" in game_version:
+            # 1.7.10_pre4
+            game_version = game_version.split("_")[0]
+
+        yield (forge_version, game_version)
 
 
 def best_version_from_promos(promos, game_version=None):
     if game_version is None:
-        bestmcobj = max(promos, key=lambda obj: _version_as_tuple(obj["mcversion"]))
-        game_version = bestmcobj["mcversion"]
-    versions_for_game = list(
-        filter(lambda obj: obj["mcversion"] == game_version, promos)
-    )
+        _, game_version = max(promos, key=lambda obj: _version_as_tuple(obj[1]))
+    versions_for_game = list(filter(lambda obj: obj[1] == game_version, promos))
     if len(versions_for_game) == 0:
         raise VersionResolutionError(
             "No forge available for game version. Try using --latest."
         )
-    forge_version = max(
-        map(itemgetter("version"), versions_for_game), key=_version_as_tuple
-    )
+    forge_version = max(map(itemgetter(0), versions_for_game), key=_version_as_tuple)
 
     return game_version, forge_version
 
