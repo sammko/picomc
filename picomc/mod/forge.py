@@ -106,12 +106,12 @@ def full_from_forge(all_versions, forge_version):
 
 def resolve_version(game_version=None, forge_version=None, latest=False):
     logger.info("Fetching Forge metadata")
-    promos = list(get_applicable_promos(latest))
     all_versions = set(get_all_versions())
 
     logger.info("Resolving version")
 
     if forge_version is None:
+        promos = list(get_applicable_promos(latest))
         game_version, forge_version = best_version_from_promos(promos, game_version)
 
     found_game, full = full_from_forge(all_versions, forge_version)
