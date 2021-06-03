@@ -29,7 +29,7 @@ def _list(am):
 
 @account_cli.command()
 @account_cmd
-@click.argument("mojang_username", default="")
+@click.argument("mojang_username", required=False)
 @pass_account_manager
 def create(am, account, mojang_username):
     """Create an account."""

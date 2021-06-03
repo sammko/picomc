@@ -7,7 +7,7 @@ from picomc.cli.utils import pass_account_manager, pass_instance_manager, pass_l
 
 
 @click.command()
-@click.argument("version", default=False)
+@click.argument("version", required=False)
 @click.option("-a", "--account", "account_name")
 @click.option("--verify", is_flag=True, default=False)
 @pass_instance_manager
