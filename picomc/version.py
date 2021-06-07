@@ -70,6 +70,11 @@ LEGACY_ASSETS = {
     ),
 }
 
+LEGACY_JAVA_VERSION = {
+    "component": "jre-legacy",
+    "majorVersion": 8,
+}
+
 
 class VersionSpec:
     def __init__(self, vobj, version_manager):
@@ -109,6 +114,12 @@ class VersionSpec:
             self.arguments = self.attr_reduce("arguments", argumentadd)
         except AttributeError:
             pass
+
+        # TODO maybe we could detect extremely old versions of Minecraft and
+        # put an appropriate version of java here in that case
+        self.javaVersion = self.attr_override(
+            "javaVersion", default=LEGACY_JAVA_VERSION
+        )
         self.mainClass = self.attr_override("mainClass")
         self.assetIndex = self.attr_override("assetIndex", default=None)
         self.assets = self.attr_override("assets", default="legacy")
@@ -140,6 +151,8 @@ class Version:
 
         self.jarname = self.vspec.jar
         self.jarfile = self.versions_root / self.jarname / "{}.jar".format(self.jarname)
+
+        self.java_version = self.vspec.javaVersion
 
     def get_raw_vspec(self):
         vspec_path = (
