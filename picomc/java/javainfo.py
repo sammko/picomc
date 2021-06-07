@@ -46,10 +46,31 @@ def get_java_info(java):
     return res
 
 
-def assert_java(java):
+def check_version_against(version: str, wanted):
+    component = wanted["component"]
+    wanted_major = str(wanted["majorVersion"])
+
+    major, minor, *_ = version.split(".")
+
+    if component == "jre-legacy":
+        return major == "1" and minor == wanted_major
+    else:
+        return major == wanted_major
+
+
+def wanted_to_str(wanted):
+    component = wanted["component"]
+    major = str(wanted["majorVersion"])
+
+    if component == "jre-legacy":
+        return f"1.{major}.0"
+    else:
+        return str(major)
+
+
+def assert_java(java, wanted):
     try:
         jinfo = get_java_info(java)
-        badjv = not jinfo["java.version"].startswith("1.8.0")
         bitness = jinfo.get("sun.arch.data.model", None)
         if bitness and bitness != "64":
             logger.warning(
@@ -62,11 +83,23 @@ def assert_java(java):
             )
         )
 
-        if badjv:
+        if not check_version_against(jinfo["java.version"], wanted):
             logger.warning(
-                "Minecraft uses java 1.8.0 by default."
-                " You may experience issues, especially with older versions of Minecraft."
+                "The version of Minecraft you are launching "
+                "uses java {} by default.".format(wanted_to_str(wanted))
             )
+
+            logger.warning(
+                "You may experience issues, especially with older versions of Minecraft."
+            )
+
+            major = int(jinfo["java.version"].split(".")[0])
+            if major < wanted["majorVersion"]:
+                logger.error(
+                    "Note that at least java {} is required to launch at all.".format(
+                        wanted_to_str(wanted)
+                    )
+                )
 
         return jinfo
 

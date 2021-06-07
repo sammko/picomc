@@ -123,7 +123,7 @@ class Instance:
         os.makedirs(gamedir, exist_ok=True)
 
         java = self.get_java()
-        java_info = assert_java(java)
+        java_info = assert_java(java, vobj.java_version)
 
         libraries = vobj.get_libraries(java_info)
         vobj.prepare_launch(gamedir, java_info, verify_hashes)
@@ -146,7 +146,7 @@ class Instance:
 
     def extract_natives(self):
         vobj = self.launcher.version_manager.get_version(self.config["version"])
-        java_info = assert_java(self.get_java())
+        java_info = assert_java(self.get_java(), vobj.java_version)
         vobj.download_libraries(java_info, verify_hashes=True)
         libs = vobj.get_libraries(java_info)
         ne = NativesExtractor(
