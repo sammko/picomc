@@ -50,7 +50,11 @@ def check_version_against(version: str, wanted):
     component = wanted["component"]
     wanted_major = str(wanted["majorVersion"])
 
-    major, minor, *_ = version.split(".")
+    try:
+        major, minor, *_ = version.split(".")
+    except ValueError:
+        major = version
+        minor = 0
 
     if component == "jre-legacy":
         return major == "1" and minor == wanted_major
