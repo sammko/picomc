@@ -42,6 +42,20 @@ FORGE_WRAPPER = {
     },
 }
 
+FORGE_WRAPPER_NEW = {
+    "mainClass": "net.cavoj.picoforgewrapper.Main",
+    "library": {
+        "name": "net.cavoj:PicoForgeWrapper:1.4",
+        "downloads": {
+            "artifact": {
+                "url": "https://storage.googleapis.com/picomc-forgewrapper/PicoForgeWrapper-1.4.jar",
+                "sha1": "4270ed08c514c0acbf0ce8fedc5c249f20221007",
+                "size": 7504,
+            }
+        },
+    },
+}
+
 
 class VersionResolutionError(Exception):
     pass
@@ -186,7 +200,13 @@ def save_vspec(ctx, vspec):
 
 
 def copy_libraries(ctx):
-    libdir_relative = Artifact.make(ctx.install_profile["path"]).path.parent
+    lib_path = ctx.install_profile["path"]
+    if lib_path is None:
+        # 1.17 forge jar is no longer packaged in the installer but it can
+        # be downloaded like the rest
+        logger.debug("Forge lib not bundled in installer, skipping copy")
+        return
+    libdir_relative = Artifact.make(lib_path).path.parent
     srcdir = ctx.extract_dir / "maven" / libdir_relative
     dstdir = ctx.libraries_dir / libdir_relative
     dstdir.mkdir(parents=True, exist_ok=True)
@@ -203,8 +223,37 @@ def install_newstyle(ctx: ForgeInstallContext):
 def install_113(ctx: ForgeInstallContext):
     vspec = make_base_vspec(ctx)
 
-    vspec["libraries"] = [FORGE_WRAPPER["library"]] + vspec["libraries"]
-    vspec["mainClass"] = FORGE_WRAPPER["mainClass"]
+    # Forge 36.1.66 changed the installer format
+    is_wrapper_new = _version_as_tuple(ctx.forge_version) >= (36, 1, 66)
+    wrapper = FORGE_WRAPPER_NEW if is_wrapper_new else FORGE_WRAPPER
+
+    original_main_class = vspec["mainClass"]
+    vspec["libraries"] = [wrapper["library"]] + vspec["libraries"]
+    vspec["mainClass"] = wrapper["mainClass"]
+
+    if is_wrapper_new:
+        logger.debug("Using new PicoForgeWrapper")
+        vspec["arguments"]["jvm"] += [f"-Dpicomc.mainClass={original_main_class}"]
+
+    if _version_as_tuple(ctx.forge_version) >= (37, 0, 0):
+        found = None
+        for i, arg in enumerate(vspec["arguments"]["jvm"]):
+            if arg.startswith("-DignoreList"):
+                found = i
+                break
+        if found is not None:
+            logger.debug("Found -DignoreList, extending.")
+            vspec["arguments"]["jvm"][i] += r",${jar_name}.jar"
+        else:
+            logger.warn(
+                "Could not locate -DignoreList arg, something is probably wrong. The game may not work."
+            )
+
+        logger.debug("Adding export to jvm args.")
+        vspec["arguments"]["jvm"] += [
+            "--add-exports",
+            "cpw.mods.bootstraplauncher/cpw.mods.bootstraplauncher=ALL-UNNAMED",
+        ]
 
     for install_lib in ctx.install_profile["libraries"]:
         install_lib["presenceOnly"] = True

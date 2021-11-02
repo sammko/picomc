@@ -181,6 +181,10 @@ class Instance:
                     launcher_name="picomc",
                     launcher_version=picomc.__version__,
                     classpath=classpath,
+                    version_name=v.version_name,
+                    jar_name=v.jarname,
+                    library_directory=self.libraries_root,
+                    classpath_separator=os.pathsep,
                 )
                 sjvmargs.append(res)
 
