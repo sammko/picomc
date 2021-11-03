@@ -5,7 +5,7 @@ import shutil
 import urllib.parse
 from dataclasses import dataclass
 from operator import itemgetter
-from pathlib import Path
+from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
 from xml.etree import ElementTree
 from zipfile import ZipFile
@@ -27,6 +27,7 @@ META_FILE = "maven-metadata.xml"
 INSTALLER_FILE = "forge-{}-installer.jar"
 INSTALL_PROFILE_FILE = "install_profile.json"
 VERSION_INFO_FILE = "version.json"
+INSTALLV1_CLASS = PurePath("net/minecraftforge/installer/json/InstallV1.class")
 
 FORGE_WRAPPER = {
     "mainClass": "net.cavoj.picoforgewrapper.Main",
@@ -223,8 +224,8 @@ def install_newstyle(ctx: ForgeInstallContext):
 def install_113(ctx: ForgeInstallContext):
     vspec = make_base_vspec(ctx)
 
-    # Forge 36.1.66 changed the installer format
-    is_wrapper_new = _version_as_tuple(ctx.forge_version) >= (36, 1, 66)
+    # Find out if the installer is of new format by checking if InstallV1 class exists
+    is_wrapper_new = (ctx.extract_dir / INSTALLV1_CLASS).exists()
     wrapper = FORGE_WRAPPER_NEW if is_wrapper_new else FORGE_WRAPPER
 
     original_main_class = vspec["mainClass"]
@@ -233,6 +234,8 @@ def install_113(ctx: ForgeInstallContext):
 
     if is_wrapper_new:
         logger.debug("Using new PicoForgeWrapper")
+        if not "jvm" in vspec["arguments"]:
+            vspec["arguments"]["jvm"] = list()
         vspec["arguments"]["jvm"] += [f"-Dpicomc.mainClass={original_main_class}"]
 
     if _version_as_tuple(ctx.forge_version) >= (37, 0, 0):
