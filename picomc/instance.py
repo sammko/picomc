@@ -212,6 +212,8 @@ class Instance:
                 assets_root=self.assets_root,
                 assets_index_name=v.vspec.assets,
                 game_assets=v.get_virtual_asset_path(),
+                clientid="", # TODO fill these out properly
+                auth_xuid="",
             )
             smcargs.append(res)
 
