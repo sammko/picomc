@@ -38,9 +38,9 @@ class OfflineAccount(Account):
     access_token = "-"
 
     @classmethod
-    def new(cls, name):
+    def new(cls, am, name):
         u = uuid.uuid3(NAMESPACE_NULL, "OfflinePlayer:{}".format(name)).hex
-        return cls(name=name, uuid=u)
+        return cls(name=name, uuid=u, _am=am)
 
     @property
     def gname(self):
@@ -63,8 +63,8 @@ class OnlineAccount(Account):
     fresh = False
 
     @classmethod
-    def new(cls, name, username):
-        return cls(name=name, username=username)
+    def new(cls, am, name, username):
+        return cls(name=name, username=username, _am=am)
 
     def validate(self):
         r = self._am.yggdrasil.validate(self.access_token)

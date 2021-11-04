@@ -35,9 +35,9 @@ def create(am, account, mojang_username):
     """Create an account."""
     try:
         if mojang_username:
-            acc = OnlineAccount.new(account, mojang_username)
+            acc = OnlineAccount.new(am, account, mojang_username)
         else:
-            acc = OfflineAccount.new(account)
+            acc = OfflineAccount.new(am, account)
         am.add(acc)
     except AccountError as e:
         print(e)

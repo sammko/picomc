@@ -27,12 +27,13 @@ def play(launcher, am, im, version, account_name, verify):
                 "enter your email. Leave blank if you want to play offline:\n> "
             )
             if email:
-                account = OnlineAccount.new(username, email)
+                account = OnlineAccount.new(am, username, email)
+            else:
+                account = OfflineAccount.new(am, username)
+            am.add(account)
+            if email:
                 password = getpass.getpass("\nPassword:\n> ")
                 account.authenticate(password)
-            else:
-                account = OfflineAccount.new(username)
-            am.add(account)
     if not im.exists("default"):
         im.create("default", "latest")
     inst = im.get("default")
