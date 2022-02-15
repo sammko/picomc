@@ -46,20 +46,27 @@ def get_java_info(java):
     return res
 
 
-def check_version_against(version: str, wanted):
-    component = wanted["component"]
-    wanted_major = str(wanted["majorVersion"])
+def get_major_version(java_version):
+    split = java_version.split(".")
 
-    try:
-        major, minor, *_ = version.split(".")
-    except ValueError:
-        major = version
-        minor = 0
-
-    if component == "jre-legacy":
-        return major == "1" and minor == wanted_major
+    if len(split) == 1:
+        # "12", "18-beta", "9-ea", "17-internal"
+        first = split[0]
+    elif split[0] == "1":
+        # "1.8.0_201"
+        first = split[1]
     else:
-        return major == wanted_major
+        # "17.0.1"
+        first = split[0]
+
+    return first.split("-")[0]
+
+
+def check_version_against(version: str, wanted):
+    wanted_major = str(wanted["majorVersion"])
+    running_major = get_major_version(version)
+
+    return wanted_major == running_major
 
 
 def wanted_to_str(wanted):
@@ -97,7 +104,7 @@ def assert_java(java, wanted):
                 "You may experience issues, especially with older versions of Minecraft."
             )
 
-            major = int(jinfo["java.version"].split(".")[0])
+            major = get_major_version(jinfo["java.version"])
             if major < wanted["majorVersion"]:
                 logger.error(
                     "Note that at least java {} is required to launch at all.".format(
