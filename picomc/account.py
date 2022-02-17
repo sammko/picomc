@@ -56,6 +56,9 @@ class OfflineAccount(Account):
     def refresh(self):
         return False
 
+    def can_launch_game(self):
+        return True
+
 
 class OnlineAccount(Account):
     DEFAULTS = {
@@ -110,6 +113,9 @@ class OnlineAccount(Account):
         self.fresh = True
         self.save()
 
+    def can_launch_game(self):
+        return self.is_authenticated
+
 
 class MicrosoftAccount(Account):
     DEFAULTS = {
@@ -151,6 +157,9 @@ class MicrosoftAccount(Account):
         self.uuid = profile["id"]
         self.is_authenticated = True
         self.save()
+
+    def can_launch_game(self):
+        return self.is_authenticated
 
 
 class AccountError(ValueError):

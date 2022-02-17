@@ -189,6 +189,11 @@ class Instance:
                 )
                 sjvmargs.append(res)
 
+        if not account.can_launch_game():
+            logger.error(
+                "Account is not ready to launch game. Online accounts need to be authenticated at least once"
+            )
+            return
         try:
             account.refresh()
         except RefreshError as e:
