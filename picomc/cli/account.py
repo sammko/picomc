@@ -31,7 +31,7 @@ def _list(am):
         lines = ("{}{}".format("* " if am.is_default(u) else "  ", u) for u in alist)
         print("\n".join(lines))
     else:
-        print("No accounts.")
+        logger.info("No accounts.")
 
 
 @account_cli.command()
@@ -53,7 +53,7 @@ def create(am, account, mojang_username, microsoft):
             acc = OfflineAccount.new(am, account)
         am.add(acc)
     except AccountError as e:
-        print(e)
+        logger.error("Could not create account: %s", e)
 
 
 @account_cli.command()
@@ -93,7 +93,7 @@ def refresh(am, account):
         a = am.get(account)
         a.refresh()
     except (AccountError, RefreshError) as e:
-        print(e)
+        logger.error("Could not refresh account: %s", e)
 
 
 @account_cli.command()
@@ -104,7 +104,7 @@ def remove(am, account):
     try:
         am.remove(account)
     except AccountError as e:
-        print(e)
+        logger.error("Could not remove account: %s", e)
 
 
 @account_cli.command()
@@ -116,7 +116,7 @@ def setdefault(am, account):
         default = am.get(account)
         am.set_default(default)
     except AccountError as e:
-        print(e)
+        logger.error("Could not set default account: %s", e)
 
 
 def register_account_cli(picomc_cli):
