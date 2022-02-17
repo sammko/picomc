@@ -3,7 +3,7 @@ from urllib.error import HTTPError
 import requests
 from requests.exceptions import RequestException
 
-from picomc.errors import AuthenticationError
+from picomc.errors import AuthenticationError, RefreshError, ValidationError
 from picomc.logging import logger
 
 URL_DEVICE_AUTH = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode"
@@ -54,6 +54,21 @@ class MicrosoftAuthApi:
         logger.debug("OAuth device code flow successful")
         return access_token, refresh_token
 
+    def _ms_oauth_refresh(self, refresh_token):
+        data = {
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+            "client_id": CLIENT_ID,
+        }
+        resp = requests.post(URL_TOKEN, data)
+        resp.raise_for_status()
+
+        j = resp.json()
+        access_token = j["access_token"]
+        refresh_token = j["refresh_token"]
+        logger.debug("OAuth code flow refresh successful")
+        return access_token, refresh_token
+
     def _xbl_auth(self, access_token):
         data = {
             "Properties": {
@@ -100,15 +115,41 @@ class MicrosoftAuthApi:
         resp.raise_for_status()
         return resp.json()
 
+    def _auth_rest(self, access_token, refresh_token):
+        xbl_token, uhs = self._xbl_auth(access_token)
+        xsts_token = self._xsts_auth(xbl_token)
+        mc_access_token = self._mcs_auth(uhs, xsts_token)
+        return mc_access_token
+
     def authenticate(self):
         try:
             access_token, refresh_token = self._ms_oauth()
-            xbl_token, uhs = self._xbl_auth(access_token)
-            xsts_token = self._xsts_auth(xbl_token)
-            mc_access_token = self._mcs_auth(uhs, xsts_token)
+            mc_access_token = self._auth_rest(access_token, refresh_token)
+            return mc_access_token, refresh_token
         except RequestException as e:
             raise AuthenticationError(e)
         except KeyError as e:
             raise AuthenticationError("Missing field in response", e)
 
-        return mc_access_token, refresh_token
+    def validate(self, mc_access_token):
+        try:
+            resp = requests.get(
+                URL_MCS_PROFILE, headers={"Authorization": f"Bearer {mc_access_token}"}
+            )
+            if resp.status_code == 401:
+                return False
+
+            resp.raise_for_status()
+            profile = resp.json()
+
+            return "id" in profile
+        except RequestException as e:
+            raise ValidationError(e)
+
+    def refresh(self, refresh_token):
+        try:
+            access_token, new_refresh_token = self._ms_oauth_refresh(refresh_token)
+            mc_access_token = self._auth_rest(access_token, refresh_token)
+            return mc_access_token, new_refresh_token
+        except RequestException as e:
+            raise RefreshError(e)

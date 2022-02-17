@@ -1,6 +1,6 @@
 import uuid
 
-from picomc.errors import RefreshError
+from picomc.errors import RefreshError, ValidationError
 from picomc.logging import logger
 from picomc.msapi import MicrosoftAuthApi
 from picomc.yggdrasil import MojangYggdrasil
@@ -126,13 +126,23 @@ class MicrosoftAccount(Account):
     def new(cls, am, name):
         return cls(name=name, _am=am)
 
-    def validate(self):
-        logger.warning("validate not implemented for Microsoft accounts")
-        return True
-
     def refresh(self, force=False):
-        logger.warning("refresh not implemented for Microsoft accounts")
-        return False
+        if not self.is_authenticated:
+            raise RefreshError("Account is not authenticated, cannot refresh")
+        try:
+            valid = self._am.msapi.validate(self.access_token)
+        except ValidationError as e:
+            raise RefreshError(e)
+        if valid:
+            logger.debug("msa: token still valid")
+            return False
+        else:
+            logger.debug("msa: token not valid anymore, refreshing")
+            self.access_token, self.refresh_token = self._am.msapi.refresh(
+                self.refresh_token
+            )
+            self.save()
+            return True
 
     def authenticate(self):
         self.access_token, self.refresh_token = self._am.msapi.authenticate()

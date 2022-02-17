@@ -8,3 +8,7 @@ class AuthenticationError(PicomcError):
 
 class RefreshError(PicomcError):
     pass
+
+
+class ValidationError(PicomcError):
+    pass

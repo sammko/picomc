@@ -87,14 +87,6 @@ def authenticate(am, account):
 @account_cli.command()
 @account_cmd
 @pass_account_manager
-def msaa(am, account):
-    a = am.get(account)
-    a.authenticate()
-
-
-@account_cli.command()
-@account_cmd
-@pass_account_manager
 def refresh(am, account):
     """Refresh access token with Mojang servers."""
     try:
