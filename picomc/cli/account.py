@@ -68,20 +68,20 @@ def authenticate(am, account):
         logger.error("AccountError", exc_info=True)
         return
 
-    if isinstance(a, OfflineAccount):
-        logger.error("Offline accounts cannot be authenticated")
-    elif isinstance(a, OnlineAccount):
-        import getpass
+    try:
+        if isinstance(a, OfflineAccount):
+            logger.error("Offline accounts cannot be authenticated")
+        elif isinstance(a, OnlineAccount):
+            import getpass
 
-        p = getpass.getpass("Password: ")
-        try:
+            p = getpass.getpass("Password: ")
             a.authenticate(p)
-        except AuthenticationError:
-            logger.error("Failed to authenticate", exc_info=True)
-    elif isinstance(a, MicrosoftAccount):
-        a.authenticate()
-    else:
-        logger.error("Unknown account type")
+        elif isinstance(a, MicrosoftAccount):
+            a.authenticate()
+        else:
+            logger.error("Unknown account type")
+    except AuthenticationError as e:
+        logger.error("Authentication failed: %s", e)
 
 
 @account_cli.command()

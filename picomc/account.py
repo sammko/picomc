@@ -1,8 +1,9 @@
 import uuid
 
+from picomc.errors import RefreshError
 from picomc.logging import logger
 from picomc.msapi import MicrosoftAuthApi
-from picomc.yggdrasil import MojangYggdrasil, RefreshError
+from picomc.yggdrasil import MojangYggdrasil
 
 
 class NAMESPACE_NULL:

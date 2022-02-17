@@ -1,14 +1,10 @@
+from urllib.error import HTTPError
 from urllib.parse import urljoin
 
 import requests
+from requests.exceptions import RequestException
 
-
-class AuthenticationError(Exception):
-    pass
-
-
-class RefreshError(AuthenticationError):
-    pass
+from picomc.errors import AuthenticationError, RefreshError
 
 
 class MojangYggdrasil:
@@ -19,41 +15,58 @@ class MojangYggdrasil:
 
     def authenticate(self, username, password):
         ep = urljoin(self.BASE_URL, "/authenticate")
-        resp = requests.post(
-            ep,
-            json={
-                "agent": {"name": "Minecraft", "version": 1},
-                "username": username,
-                "password": password,
-                "clientToken": self.client_token,
-                "requestUser": True,
-            },
-        )
-        j = resp.json()
-        if resp.status_code == 403:
-            raise AuthenticationError("Failed to authenticate", j["errorMessage"])
-        access_token = j["accessToken"]
-        uuid = j["selectedProfile"]["id"]
-        name = j["selectedProfile"]["name"]
-        return (access_token, uuid, name)
+
+        try:
+            resp = requests.post(
+                ep,
+                json={
+                    "agent": {"name": "Minecraft", "version": 1},
+                    "username": username,
+                    "password": password,
+                    "clientToken": self.client_token,
+                    "requestUser": True,
+                },
+            )
+            j = resp.json()
+            if not resp.ok and "errorMessage" in j:
+                raise AuthenticationError("Server response: " + j["errorMessage"])
+            resp.raise_for_status()
+        except RequestException as e:
+            raise AuthenticationError(e)
+
+        try:
+            access_token = j["accessToken"]
+            uuid = j["selectedProfile"]["id"]
+            name = j["selectedProfile"]["name"]
+            return (access_token, uuid, name)
+        except KeyError as e:
+            raise AuthenticationError("Missing field in response", e)
 
     def refresh(self, access_token):
         ep = urljoin(self.BASE_URL, "/refresh")
-        resp = requests.post(
-            ep,
-            json={
-                "accessToken": access_token,
-                "clientToken": self.client_token,
-                "requestUser": True,
-            },
-        )
-        j = resp.json()
-        if resp.status_code == 403:
-            raise RefreshError("Failed to refresh", j["errorMessage"])
-        access_token = j["accessToken"]
-        uuid = j["selectedProfile"]["id"]
-        name = j["selectedProfile"]["name"]
-        return (access_token, uuid, name)
+        try:
+            resp = requests.post(
+                ep,
+                json={
+                    "accessToken": access_token,
+                    "clientToken": self.client_token,
+                    "requestUser": True,
+                },
+            )
+            j = resp.json()
+            if not resp.ok and "errorMessage" in j:
+                raise RefreshError(j["errorMessage"])
+            resp.raise_for_status()
+        except RequestException as e:
+            raise RefreshError("Failed to refresh", e)
+
+        try:
+            access_token = j["accessToken"]
+            uuid = j["selectedProfile"]["id"]
+            name = j["selectedProfile"]["name"]
+            return (access_token, uuid, name)
+        except KeyError:
+            raise RefreshError("Missing field in response", e)
 
     def validate(self, access_token):
         ep = urljoin(self.BASE_URL, "/validate")

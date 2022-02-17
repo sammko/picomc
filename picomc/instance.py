@@ -12,6 +12,7 @@ import requests
 
 import picomc
 from picomc import logging
+from picomc.errors import RefreshError
 from picomc.java import assert_java
 from picomc.logging import logger
 from picomc.rules import match_ruleset
@@ -190,10 +191,8 @@ class Instance:
 
         try:
             account.refresh()
-        except requests.exceptions.ConnectionError:
-            logger.warning(
-                "Failed to refresh account due to a connectivity error. Continuing."
-            )
+        except RefreshError as e:
+            logger.warning(f"Failed to refresh account due to an error: {e}")
 
         smcargs = []
         for a in mcargs:
@@ -212,7 +211,7 @@ class Instance:
                 assets_root=self.assets_root,
                 assets_index_name=v.vspec.assets,
                 game_assets=v.get_virtual_asset_path(),
-                clientid="", # TODO fill these out properly
+                clientid="",  # TODO fill these out properly
                 auth_xuid="",
             )
             smcargs.append(res)
