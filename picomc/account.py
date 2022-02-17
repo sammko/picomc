@@ -1,6 +1,7 @@
 import uuid
 
 from picomc.logging import logger
+from picomc.msapi import MicrosoftAuthApi
 from picomc.yggdrasil import MojangYggdrasil, RefreshError
 
 
@@ -29,7 +30,12 @@ class Account:
 
     @classmethod
     def from_config(cls, am, name, config):
-        c = OnlineAccount if config.get("online", False) else OfflineAccount
+        if config.get("microsoft", False):
+            c = MicrosoftAccount
+        elif config.get("online", False):
+            c = OnlineAccount
+        else:
+            c = OfflineAccount
         return c(name=name, _am=am, **config)
 
 
@@ -104,6 +110,38 @@ class OnlineAccount(Account):
         self.save()
 
 
+class MicrosoftAccount(Account):
+    DEFAULTS = {
+        "uuid": "-",
+        "online": True,
+        "microsoft": True,
+        "gname": "-",
+        "access_token": "-",
+        "refresh_token": "-",
+        "is_authenticated": False,
+    }
+
+    @classmethod
+    def new(cls, am, name):
+        return cls(name=name, _am=am)
+
+    def validate(self):
+        logger.warning("validate not implemented for Microsoft accounts")
+        return True
+
+    def refresh(self, force=False):
+        logger.warning("refresh not implemented for Microsoft accounts")
+        return False
+
+    def authenticate(self):
+        self.access_token, self.refresh_token = self._am.msapi.authenticate()
+        profile = self._am.msapi.get_profile(self.access_token)
+        self.gname = profile["name"]
+        self.uuid = profile["id"]
+        self.is_authenticated = True
+        self.save()
+
+
 class AccountError(ValueError):
     def __str__(self):
         return " ".join(self.args)
@@ -122,6 +160,7 @@ class AccountManager:
     def __init__(self, launcher):
         self.config = launcher.config_manager.get(self.CONFIG_FILE, init=DEFAULT_CONFIG)
         self.yggdrasil = MojangYggdrasil(self.config["client_token"])
+        self.msapi = MicrosoftAuthApi()
 
     def list(self):
         return self.config["accounts"].keys()

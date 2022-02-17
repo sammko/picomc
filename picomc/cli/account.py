@@ -1,7 +1,14 @@
 import click
 
-from picomc.account import AccountError, OfflineAccount, OnlineAccount, RefreshError
+from picomc.account import (
+    AccountError,
+    MicrosoftAccount,
+    OfflineAccount,
+    OnlineAccount,
+    RefreshError,
+)
 from picomc.cli.utils import pass_account_manager
+from picomc.logging import logger
 from picomc.yggdrasil import AuthenticationError
 
 
@@ -30,12 +37,18 @@ def _list(am):
 @account_cli.command()
 @account_cmd
 @click.argument("mojang_username", required=False)
+@click.option("--ms", "--microsoft", "microsoft", is_flag=True, default=False)
 @pass_account_manager
-def create(am, account, mojang_username):
+def create(am, account, mojang_username, microsoft):
     """Create an account."""
     try:
         if mojang_username:
+            if microsoft:
+                logger.error("Do not use --microsoft with mojang_username argument")
+                return
             acc = OnlineAccount.new(am, account, mojang_username)
+        elif microsoft:
+            acc = MicrosoftAccount.new(am, account)
         else:
             acc = OfflineAccount.new(am, account)
         am.add(acc)
@@ -48,14 +61,35 @@ def create(am, account, mojang_username):
 @pass_account_manager
 def authenticate(am, account):
     """Retrieve access token from Mojang servers using password."""
-    import getpass
 
     try:
         a = am.get(account)
+    except AccountError:
+        logger.error("AccountError", exc_info=True)
+        return
+
+    if isinstance(a, OfflineAccount):
+        logger.error("Offline accounts cannot be authenticated")
+    elif isinstance(a, OnlineAccount):
+        import getpass
+
         p = getpass.getpass("Password: ")
-        a.authenticate(p)
-    except AuthenticationError as e:
-        print(e)
+        try:
+            a.authenticate(p)
+        except AuthenticationError:
+            logger.error("Failed to authenticate", exc_info=True)
+    elif isinstance(a, MicrosoftAccount):
+        a.authenticate()
+    else:
+        logger.error("Unknown account type")
+
+
+@account_cli.command()
+@account_cmd
+@pass_account_manager
+def msaa(am, account):
+    a = am.get(account)
+    a.authenticate()
 
 
 @account_cli.command()
