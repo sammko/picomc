@@ -105,7 +105,7 @@ def assert_java(java, wanted):
             )
 
             major = get_major_version(jinfo["java.version"])
-            if major < wanted["majorVersion"]:
+            if int(major) < wanted["majorVersion"]:
                 logger.error(
                     "Note that at least java {} is required to launch at all.".format(
                         wanted_to_str(wanted)
