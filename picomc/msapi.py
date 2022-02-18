@@ -1,5 +1,4 @@
-from urllib.error import HTTPError
-
+import colorama
 import requests
 from requests.exceptions import RequestException
 
@@ -28,7 +27,15 @@ class MicrosoftAuthApi:
         j = resp.json()
         device_code = j["device_code"]
 
-        logger.info(j["message"])
+        msg = j["message"]
+        user_code = j["user_code"]
+        link = j["verification_uri"]
+
+        msg = msg.replace(
+            user_code, colorama.Fore.RED + user_code + colorama.Fore.RESET
+        ).replace(link, colorama.Style.BRIGHT + link + colorama.Style.NORMAL)
+
+        logger.info(msg)
 
         data = {"code": device_code, "grant_type": GRANT_TYPE, "client_id": CLIENT_ID}
 
@@ -43,6 +50,7 @@ class MicrosoftAuthApi:
             resp = requests.post(URL_TOKEN, data)
             if resp.status_code == 400:
                 logger.warning(resp.json()["error_description"])
+                logger.info(msg)
                 continue
             resp.raise_for_status()
 

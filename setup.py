@@ -28,6 +28,7 @@ setup(
         "certifi",
         "tqdm",
         "coloredlogs",
+        "colorama",
     ],
     python_requires=">=3.7",
     entry_points={"console_scripts": ["picomc = picomc:main"]},
