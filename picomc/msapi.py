@@ -49,9 +49,14 @@ class MicrosoftAuthApi:
 
             resp = requests.post(URL_TOKEN, data)
             if resp.status_code == 400:
-                logger.warning(resp.json()["error_description"])
-                logger.info(msg)
-                continue
+                j = resp.json()
+                logger.debug(j)
+                if j["error"] == "authorization_pending":
+                    logger.warning(j["error_description"])
+                    logger.info(msg)
+                    continue
+                else:
+                    raise AuthenticationError(j["error_description"])
             resp.raise_for_status()
 
             j = resp.json()
@@ -117,10 +122,13 @@ class MicrosoftAuthApi:
         return j["access_token"]
 
     def get_profile(self, mc_access_token):
-        resp = requests.get(
-            URL_MCS_PROFILE, headers={"Authorization": f"Bearer {mc_access_token}"}
-        )
-        resp.raise_for_status()
+        try:
+            resp = requests.get(
+                URL_MCS_PROFILE, headers={"Authorization": f"Bearer {mc_access_token}"}
+            )
+            resp.raise_for_status()
+        except RequestException as e:
+            raise AuthenticationError(e)
         return resp.json()
 
     def _auth_rest(self, access_token, refresh_token):
