@@ -67,7 +67,7 @@ def resolve_pack_meta(pack: str, pack_version=None, use_beta=False):
     else:
 
         def filt(v):
-            return use_beta or v["type"] == "Release"
+            return use_beta or v["type"].lower() == "release"
 
         filtered_versions = filter(filt, pack_manifest["versions"])
         version_id = max(filtered_versions, key=itemgetter("updated"))["id"]
