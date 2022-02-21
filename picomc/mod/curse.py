@@ -53,7 +53,13 @@ def resolve_packurl(path):
         file_id = match.group(3)
         return get_file_url(file_id)
     else:
-        raise ValueError("Unsupported URL")
+        regex = r"^curseforge:\/\/install\?addonId=\d+&fileId=(\d+)"
+        match = re.match(regex, path)
+        if match:
+            file_id = match.group(1)
+            return get_file_url(file_id)
+        else:
+            raise ValueError("Unsupported URL")
 
 
 def resolve_ccip(filename):
