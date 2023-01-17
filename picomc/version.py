@@ -131,7 +131,7 @@ class VersionSpec:
 
 
 class Version:
-    ASSETS_URL = "http://resources.download.minecraft.net/"
+    ASSETS_URL = "https://resources.download.minecraft.net/"
 
     def __init__(self, version_name, launcher, version_manifest):
         self.version_name = version_name
