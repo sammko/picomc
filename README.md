@@ -47,3 +47,8 @@ picomc --help
 
 and you should be able to figure it out. More detailed documentation
 may appear someday in the future.
+
+Changing instance directory
+---
+
+Custom folder locations for the Minecraft data per instance are not supported. You can instead create a symbolic link from the default location to your preferred path.
